@@ -17,29 +17,6 @@
 
     <!-- App shell -->
     <div class="shell">
-      <!-- Header -->
-      <header class="header">
-        <div class="brand">
-          <div class="brand__logo" aria-hidden="true">💰</div>
-          <div class="brand__text">
-            <div class="brand__title">Spending Tracker</div>
-            <div class="brand__subtitle">
-              Log transactions, track your trends.
-            </div>
-          </div>
-        </div>
-
-        <div class="header__actions">
-          <button
-            id="btnLogout"
-            class="btn btn--ghost btn--sm hidden"
-            type="button"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-
       <!-- AUTH VIEW -->
       <main id="authView" class="view">
         <section class="hero">
@@ -119,13 +96,35 @@
               Continue with Google
             </button>
 
-            <p class="fineprint">New here? Create an account in ~10 seconds.</p>
+            <p class="fineprint">New here? Create an account in 10 seconds.</p>
           </form>
         </section>
       </main>
 
       <!-- APP VIEW -->
       <main id="appView" class="view hidden">
+        <!-- Header -->
+        <header class="header">
+          <div class="brand">
+            <div class="brand__logo" aria-hidden="true">💰</div>
+            <div class="brand__text">
+              <div class="brand__title">Spending Tracker</div>
+              <div class="brand__subtitle">
+                Log transactions, track your trends.
+              </div>
+            </div>
+          </div>
+
+          <div class="header__actions">
+            <button
+              id="btnLogout"
+              class="btn btn--ghost btn--sm hidden"
+              type="button"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
         <!-- Summary strip -->
         <section class="summary card card--glass">
           <div class="summary__item">
@@ -407,6 +406,7 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

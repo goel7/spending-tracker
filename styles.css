@@ -148,6 +148,17 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Auth view centering */
+#authView {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
 /* Card */
 .card {
   border-radius: var(--radius);
@@ -176,7 +187,7 @@ body {
 
 .authCard {
   width: min(520px, 100%);
-  margin: 22px auto 0;
+  margin: 0 auto;
   padding: 26px;
   background: linear-gradient(
     180deg,

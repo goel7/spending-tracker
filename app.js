@@ -59,11 +59,15 @@ const toast = $("#toast");
 let authMode = "login"; // "login" | "signup"
 let txType = "expense"; // "expense" | "income"
 
-const LS_KEYS = {
-  session: "st_session",
-  tx: "st_transactions_v1",
-  categories: "st_categories_v1",
-};
+const SUPABASE_URL = "https://tnxumglxoblwyclxgpuy.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRueHVtZ2x4b2Jsd3ljbHhncHV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDg5MTYsImV4cCI6MjA4NjUyNDkxNn0.2t6XPzYbydM-UbQZzNDQAw4fvleS3qAgAXKpgm9zXRg";
+const supabaseLib = window.supabase;
+const supabaseClient = supabaseLib?.createClient
+  ? supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+let currentUserId = null;
 
 const DEFAULT_CATEGORIES = [
   "Food",
@@ -86,45 +90,53 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function loadSession() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEYS.session) || "null");
-  } catch {
-    return null;
-  }
-}
+async function fetchTransactions() {
+  if (!supabaseClient) return [];
+  if (!currentUserId) return [];
 
-function saveSession(session) {
-  localStorage.setItem(LS_KEYS.session, JSON.stringify(session));
-}
+  const { data, error } = await supabaseClient
+    .from("transactions")
+    .select("*")
+    .eq("user_id", currentUserId)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
 
-function clearSession() {
-  localStorage.removeItem(LS_KEYS.session);
-}
-
-function loadTransactions() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEYS.tx) || "[]");
-  } catch {
+  if (error) {
+    showToast("Failed to load transactions");
     return [];
   }
+  return data || [];
 }
 
-function saveTransactions(list) {
-  localStorage.setItem(LS_KEYS.tx, JSON.stringify(list));
-}
+async function fetchCategories() {
+  if (!supabaseClient) return [];
+  if (!currentUserId) return [];
 
-function loadCategories() {
-  try {
-    const list = JSON.parse(localStorage.getItem(LS_KEYS.categories) || "[]");
-    return Array.isArray(list) && list.length ? list : [...DEFAULT_CATEGORIES];
-  } catch {
-    return [...DEFAULT_CATEGORIES];
+  const { data, error } = await supabaseClient
+    .from("categories")
+    .select("id,name")
+    .eq("user_id", currentUserId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    showToast("Failed to load categories");
+    return [];
   }
+  return data || [];
 }
 
-function saveCategories(list) {
-  localStorage.setItem(LS_KEYS.categories, JSON.stringify(list));
+async function ensureDefaultCategories() {
+  if (!supabaseClient) return;
+  if (!currentUserId) return;
+  const existing = await fetchCategories();
+  if (existing.length) return;
+
+  const payload = DEFAULT_CATEGORIES.map((name) => ({
+    name,
+    user_id: currentUserId,
+  }));
+  const { error } = await supabaseClient.from("categories").insert(payload);
+  if (error) showToast("Failed to seed categories");
 }
 
 function normalizeCategoryName(name) {
@@ -133,8 +145,8 @@ function normalizeCategoryName(name) {
     .trim();
 }
 
-function renderCategoryOptions(selected = "") {
-  const categories = loadCategories();
+async function renderCategoryOptions(selected = "") {
+  const categories = await fetchCategories();
   txCategory.innerHTML = "";
 
   const placeholder = document.createElement("option");
@@ -144,7 +156,8 @@ function renderCategoryOptions(selected = "") {
   placeholder.textContent = "Select a category";
   txCategory.appendChild(placeholder);
 
-  categories.forEach((cat) => {
+  categories.forEach((catItem) => {
+    const cat = catItem.name || catItem;
     const opt = document.createElement("option");
     opt.value = cat;
     opt.textContent = `${categoryEmoji(cat)} ${cat}`;
@@ -183,12 +196,13 @@ function setAuthMode(mode) {
   }
 }
 
-function setSignedInUI() {
+async function setSignedInUI() {
   hide(authView);
   show(appView);
   show(fab);
   show(btnLogout); // show logout in header
-  render();
+  await ensureDefaultCategories();
+  await render();
 }
 
 function setSignedOutUI() {
@@ -198,12 +212,12 @@ function setSignedOutUI() {
   hide(btnLogout); // hide logout in header
 }
 
-function openModal() {
+async function openModal() {
   // Pre-fill
   txDate.value = todayISO();
   txDesc.value = "";
   txAmount.value = "";
-  renderCategoryOptions("");
+  await renderCategoryOptions("");
   txNote.value = "";
   setType("expense");
   hide(txMsg);
@@ -269,8 +283,8 @@ function closeAddCatModal() {
   hide(addCatOverlay);
 }
 
-function renderManageCategories() {
-  const categories = loadCategories();
+async function renderManageCategories() {
+  const categories = await fetchCategories();
   manageCatList.innerHTML = "";
 
   if (!categories.length) {
@@ -281,7 +295,8 @@ function renderManageCategories() {
     return;
   }
 
-  categories.forEach((cat) => {
+  categories.forEach((catItem) => {
+    const cat = catItem.name || catItem;
     const item = document.createElement("div");
     item.className = "catItem";
 
@@ -311,8 +326,8 @@ function renderManageCategories() {
   });
 }
 
-function openManageCatModal() {
-  renderManageCategories();
+async function openManageCatModal() {
+  await renderManageCategories();
   manageCatOverlay.setAttribute("aria-hidden", "false");
   show(manageCatOverlay);
 }
@@ -322,23 +337,28 @@ function closeManageCatModal() {
   hide(manageCatOverlay);
 }
 
-function deleteCategory(cat) {
-  const categories = loadCategories();
-  const updated = categories.filter(
-    (c) => c.toLowerCase() !== cat.toLowerCase(),
-  );
-  saveCategories(updated);
+async function deleteCategory(cat) {
+  if (!supabaseClient) return;
+  const { error: txError } = await supabaseClient
+    .from("transactions")
+    .update({ category: null })
+    .eq("category", cat)
+    .eq("user_id", currentUserId);
 
-  const items = loadTransactions().map((tx) =>
-    tx.category?.toLowerCase() === cat.toLowerCase()
-      ? { ...tx, category: "" }
-      : tx,
-  );
-  saveTransactions(items);
+  const { error: catError } = await supabaseClient
+    .from("categories")
+    .delete()
+    .eq("name", cat)
+    .eq("user_id", currentUserId);
 
-  renderCategoryOptions("");
-  renderManageCategories();
-  render();
+  if (txError || catError) {
+    showToast("Failed to delete category");
+    return;
+  }
+
+  await renderCategoryOptions("");
+  await renderManageCategories();
+  await render();
   showToast("Category deleted");
 }
 
@@ -438,8 +458,8 @@ function renderList(items) {
 
     const title = document.createElement("div");
     title.className = "txTitle";
-    title.textContent = it.desc?.trim()
-      ? it.desc.trim()
+    title.textContent = it.description?.trim()
+      ? it.description.trim()
       : it.category || "Transaction";
 
     const sub = document.createElement("div");
@@ -538,14 +558,14 @@ function renderList(items) {
   }
 }
 
-function render() {
-  const items = loadTransactions();
+async function render() {
+  const items = await fetchTransactions();
   renderSummary(items);
   renderList(items);
 }
 
-function startEdit(id) {
-  const items = loadTransactions();
+async function startEdit(id) {
+  const items = await fetchTransactions();
   const it = items.find((x) => x.id === id);
   if (!it) return;
 
@@ -553,9 +573,9 @@ function startEdit(id) {
 
   // fill modal
   txDate.value = it.date;
-  txDesc.value = it.desc || "";
+  txDesc.value = it.description || "";
   txAmount.value = String(it.amount ?? "");
-  renderCategoryOptions(it.category || "");
+  await renderCategoryOptions(it.category || "");
   txNote.value = it.note || "";
   setType(it.type || "expense");
 
@@ -579,13 +599,22 @@ function resetModalToAdd() {
   btnAddTx.textContent = "Add transaction";
 }
 
-function deleteTx(id) {
+async function deleteTx(id) {
+  if (!supabaseClient) return;
   const ok = confirm("Delete this transaction?");
   if (!ok) return;
 
-  const items = loadTransactions().filter((x) => x.id !== id);
-  saveTransactions(items);
-  render();
+  const { error } = await supabaseClient
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", currentUserId);
+  if (error) {
+    showToast("Failed to delete transaction");
+    return;
+  }
+
+  await render();
   showToast("Transaction deleted");
 }
 
@@ -596,10 +625,17 @@ btnAuthToggle.addEventListener("click", () => {
   setAuthMode(authMode === "login" ? "signup" : "login");
 });
 
-// auth submit (UI-only)
-authForm.addEventListener("submit", (e) => {
+// auth submit
+authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   hide(authMsg);
+
+  if (!supabaseClient) {
+    authMsg.textContent =
+      "Auth library failed to load. Refresh the page or check your internet.";
+    show(authMsg);
+    return;
+  }
 
   const email = authEmail.value.trim();
   const pass = authPassword.value;
@@ -618,15 +654,48 @@ authForm.addEventListener("submit", (e) => {
     }
   }
 
-  // Fake "session"
-  saveSession({ email });
-  setSignedInUI();
-  showToast(authMode === "signup" ? "Account created" : "Logged in");
+  if (authMode === "signup") {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password: pass,
+    });
+    if (error) {
+      authMsg.textContent = error.message;
+      show(authMsg);
+      return;
+    }
+
+    if (data?.user?.id) {
+      currentUserId = data.user.id;
+      await setSignedInUI();
+      showToast("Account created");
+    } else {
+      authMsg.textContent = "Check your email to confirm your account.";
+      show(authMsg);
+    }
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password: pass,
+  });
+  if (error) {
+    authMsg.textContent = error.message;
+    show(authMsg);
+    return;
+  }
+
+  currentUserId = data.user?.id || null;
+  await setSignedInUI();
+  showToast("Logged in");
 });
 
 // logout
-btnLogout.addEventListener("click", () => {
-  clearSession();
+btnLogout.addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  currentUserId = null;
   setSignedOutUI();
   showToast("Logged out");
 });
@@ -641,7 +710,7 @@ btnAddCatClose.addEventListener("click", () => closeAddCatModal());
 btnAddCatCancel.addEventListener("click", () => closeAddCatModal());
 btnManageCatClose.addEventListener("click", () => closeManageCatModal());
 
-addCatForm.addEventListener("submit", (e) => {
+addCatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   hide(addCatMsg);
 
@@ -652,17 +721,26 @@ addCatForm.addEventListener("submit", (e) => {
     return;
   }
 
-  const categories = loadCategories();
-  const exists = categories.some((c) => c.toLowerCase() === name.toLowerCase());
+  const categories = await fetchCategories();
+  const exists = categories.some(
+    (c) => (c.name || c).toLowerCase() === name.toLowerCase(),
+  );
   if (exists) {
     addCatMsg.textContent = "That category already exists.";
     show(addCatMsg);
     return;
   }
 
-  categories.push(name);
-  saveCategories(categories);
-  renderCategoryOptions(name);
+  const { error } = await supabaseClient
+    .from("categories")
+    .insert({ name, user_id: currentUserId });
+  if (error) {
+    addCatMsg.textContent = error.message;
+    show(addCatMsg);
+    return;
+  }
+
+  await renderCategoryOptions(name);
   closeAddCatModal();
   showToast("Category added");
 });
@@ -717,9 +795,14 @@ function validateTxForm() {
 });
 
 // add transaction
-txForm.addEventListener("submit", (e) => {
+txForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   hide(txMsg);
+
+  if (!supabaseClient) {
+    showInline("Backend not ready. Refresh and try again.");
+    return;
+  }
 
   const date = txDate.value;
   const desc = txDesc.value.trim();
@@ -731,58 +814,81 @@ txForm.addEventListener("submit", (e) => {
   if (!category) return showInline("Pick a category.");
   if (!(amount > 0)) return showInline("Amount must be > 0.");
 
-  const items = loadTransactions();
-
   if (editingId) {
-    const idx = items.findIndex((x) => x.id === editingId);
-    if (idx !== -1) {
-      items[idx] = {
-        ...items[idx],
+    const { error } = await supabaseClient
+      .from("transactions")
+      .update({
         date,
         type: txType,
-        desc,
+        description: desc,
         amount,
         category,
         note,
-      };
+      })
+      .eq("id", editingId)
+      .eq("user_id", currentUserId);
+    if (error) {
+      showInline("Failed to update transaction.");
+      return;
     }
-    saveTransactions(items);
-    render();
+    await render();
     closeModal();
     showToast("Transaction updated");
     return;
   }
 
   // add new
-  items.push({
-    id: crypto?.randomUUID
-      ? crypto.randomUUID()
-      : String(Date.now()) + Math.random().toString(16).slice(2),
+  const { error } = await supabaseClient.from("transactions").insert({
+    user_id: currentUserId,
     date,
     type: txType,
-    desc,
+    description: desc,
     amount,
     category,
     note,
-    createdAt: Date.now(),
   });
 
-  saveTransactions(items);
-  render();
+  if (error) {
+    showInline("Failed to add transaction.");
+    return;
+  }
+
+  await render();
   closeModal();
   showToast("Transaction added");
 });
 
 /* ---------- Init ---------- */
-renderCategoryOptions("");
 setAuthMode("login");
 
-const session = loadSession();
-if (session?.email) {
-  setSignedInUI();
-} else {
+if (!supabaseClient) {
   setSignedOutUI();
   hide(fab);
+  authMsg.textContent =
+    "Auth library failed to load. Refresh the page or check your internet.";
+  show(authMsg);
+} else {
+  supabaseClient.auth.getSession().then(({ data }) => {
+    const session = data?.session;
+    if (session?.user?.id) {
+      currentUserId = session.user.id;
+      setSignedInUI();
+    } else {
+      setSignedOutUI();
+      hide(fab);
+    }
+  });
+
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    if (session?.user?.id) {
+      currentUserId = session.user.id;
+      setSignedInUI();
+    } else {
+      currentUserId = null;
+      setSignedOutUI();
+      hide(fab);
+    }
+  });
 }
 
 // Set initial modal defaults
