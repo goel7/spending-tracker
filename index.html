@@ -109,9 +109,6 @@
             <div class="brand__logo" aria-hidden="true">💰</div>
             <div class="brand__text">
               <div class="brand__title">Spending Tracker</div>
-              <div class="brand__subtitle">
-                Log transactions, track your trends.
-              </div>
             </div>
           </div>
 
@@ -403,6 +400,41 @@
         </div>
 
         <div id="manageCatList" class="catList"></div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div
+      id="confirmOverlay"
+      class="modalOverlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+    >
+      <div class="modal card card--glass modal--sm">
+        <div class="modal__head">
+          <div>
+            <div id="confirmTitle" class="modal__title">Confirm</div>
+            <div id="confirmSubtitle" class="modal__muted">Are you sure?</div>
+          </div>
+          <button
+            id="btnConfirmClose"
+            class="iconBtn"
+            aria-label="Close confirm"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="row row--gap row--end">
+          <button id="btnConfirmCancel" class="btn btn--ghost" type="button">
+            Cancel
+          </button>
+          <button id="btnConfirmOk" class="btn btn--danger" type="button">
+            Delete
+          </button>
+        </div>
       </div>
     </div>
 

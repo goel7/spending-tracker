@@ -56,8 +56,16 @@ const sumNet = $("#sumNet");
 
 const toast = $("#toast");
 
+const confirmOverlay = $("#confirmOverlay");
+const confirmTitle = $("#confirmTitle");
+const confirmSubtitle = $("#confirmSubtitle");
+const btnConfirmClose = $("#btnConfirmClose");
+const btnConfirmCancel = $("#btnConfirmCancel");
+const btnConfirmOk = $("#btnConfirmOk");
+
 let authMode = "login"; // "login" | "signup"
 let txType = "expense"; // "expense" | "income"
+let confirmResolve = null;
 
 const SUPABASE_URL = "https://tnxumglxoblwyclxgpuy.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -337,8 +345,41 @@ function closeManageCatModal() {
   hide(manageCatOverlay);
 }
 
+function openConfirm({
+  title = "Confirm",
+  subtitle = "Are you sure?",
+  okText = "Delete",
+} = {}) {
+  confirmTitle.textContent = title;
+  confirmSubtitle.textContent = subtitle;
+  btnConfirmOk.textContent = okText;
+  confirmOverlay.setAttribute("aria-hidden", "false");
+  show(confirmOverlay);
+
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+  });
+}
+
+function closeConfirm(result = false) {
+  confirmOverlay.setAttribute("aria-hidden", "true");
+  hide(confirmOverlay);
+  if (confirmResolve) {
+    confirmResolve(result);
+    confirmResolve = null;
+  }
+}
+
 async function deleteCategory(cat) {
   if (!supabaseClient) return;
+
+  const ok = await openConfirm({
+    title: "Delete category",
+    subtitle: "This will remove it from past transactions.",
+    okText: "Delete",
+  });
+  if (!ok) return;
+
   const { error: txError } = await supabaseClient
     .from("transactions")
     .update({ category: null })
@@ -380,7 +421,8 @@ function categoryEmoji(cat) {
 
 function money(n) {
   const num = Number(n || 0);
-  return `$${num.toFixed(2)}`;
+  const abs = Math.abs(num).toFixed(2);
+  return num < 0 ? `-$${abs}` : `$${abs}`;
 }
 
 function groupLabel(dateStr) {
@@ -601,7 +643,12 @@ function resetModalToAdd() {
 
 async function deleteTx(id) {
   if (!supabaseClient) return;
-  const ok = confirm("Delete this transaction?");
+
+  const ok = await openConfirm({
+    title: "Delete transaction",
+    subtitle: "This action can’t be undone.",
+    okText: "Delete",
+  });
   if (!ok) return;
 
   const { error } = await supabaseClient
@@ -710,6 +757,10 @@ btnAddCatClose.addEventListener("click", () => closeAddCatModal());
 btnAddCatCancel.addEventListener("click", () => closeAddCatModal());
 btnManageCatClose.addEventListener("click", () => closeManageCatModal());
 
+btnConfirmClose.addEventListener("click", () => closeConfirm(false));
+btnConfirmCancel.addEventListener("click", () => closeConfirm(false));
+btnConfirmOk.addEventListener("click", () => closeConfirm(true));
+
 addCatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   hide(addCatMsg);
@@ -765,6 +816,12 @@ manageCatOverlay.addEventListener("click", (e) => {
   }
 });
 
+confirmOverlay.addEventListener("click", (e) => {
+  if (e.target === confirmOverlay) {
+    closeConfirm(false);
+  }
+});
+
 // esc closes
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -772,6 +829,7 @@ window.addEventListener("keydown", (e) => {
     if (!modalOverlay.classList.contains("hidden")) closeModal();
     if (!addCatOverlay.classList.contains("hidden")) closeAddCatModal();
     if (!manageCatOverlay.classList.contains("hidden")) closeManageCatModal();
+    if (!confirmOverlay.classList.contains("hidden")) closeConfirm(false);
   }
 });
 
