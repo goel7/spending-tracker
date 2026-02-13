@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Spending Tracker</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <!-- Background layers -->
+    <div class="bg">
+      <div class="bg__grad"></div>
+      <div class="bg__glow"></div>
+      <div class="bg__noise"></div>
+    </div>
+
+    <!-- App shell -->
+    <div class="shell">
+      <!-- Header -->
+      <header class="header">
+        <div class="brand">
+          <div class="brand__logo" aria-hidden="true">💰</div>
+          <div class="brand__text">
+            <div class="brand__title">Spending Tracker</div>
+            <div class="brand__subtitle">
+              Log transactions, track your trends.
+            </div>
+          </div>
+        </div>
+
+        <div class="header__actions">
+          <button
+            id="btnLogout"
+            class="btn btn--ghost btn--sm hidden"
+            type="button"
+          >
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <!-- AUTH VIEW -->
+      <main id="authView" class="view">
+        <section class="hero">
+          <h1 class="hero__title">Spending Tracker</h1>
+          <p class="hero__subtitle">
+            Quickly log spending + income. See monthly stats.
+          </p>
+        </section>
+
+        <section class="card card--glass authCard">
+          <h2 class="card__title" id="authTitle">Sign in</h2>
+          <p class="card__muted" id="authSubtitle">
+            Welcome back. Log in to see your data.
+          </p>
+
+          <form id="authForm" class="form" autocomplete="on">
+            <label class="field">
+              <span class="field__label">Email</span>
+              <input
+                id="authEmail"
+                class="input"
+                type="email"
+                placeholder="you@email.com"
+                required
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Password</span>
+              <input
+                id="authPassword"
+                class="input"
+                type="password"
+                placeholder="Password"
+                required
+              />
+            </label>
+
+            <label id="confirmWrap" class="field hidden">
+              <span class="field__label">Confirm password</span>
+              <input
+                id="authConfirm"
+                class="input"
+                type="password"
+                placeholder="Confirm password"
+              />
+            </label>
+
+            <div class="row row--gap">
+              <button
+                id="btnAuthPrimary"
+                class="btn btn--primary"
+                type="submit"
+              >
+                Login
+              </button>
+              <button id="btnAuthToggle" class="btn btn--ghost" type="button">
+                Sign up instead
+              </button>
+            </div>
+
+            <div
+              id="authMsg"
+              class="msg hidden"
+              role="status"
+              aria-live="polite"
+            ></div>
+
+            <div class="divider">
+              <span class="divider__line"></span>
+              <span class="divider__text">or</span>
+              <span class="divider__line"></span>
+            </div>
+
+            <button id="btnGoogle" class="btn btn--google" type="button">
+              <span class="googleDot" aria-hidden="true">G</span>
+              Continue with Google
+            </button>
+
+            <p class="fineprint">New here? Create an account in ~10 seconds.</p>
+          </form>
+        </section>
+      </main>
+
+      <!-- APP VIEW -->
+      <main id="appView" class="view hidden">
+        <!-- Summary strip -->
+        <section class="summary card card--glass">
+          <div class="summary__item">
+            <div class="summary__label">Spent</div>
+            <div id="sumSpent" class="summary__value">$0</div>
+          </div>
+          <div class="summary__item">
+            <div class="summary__label">Earned</div>
+            <div id="sumEarned" class="summary__value">$0</div>
+          </div>
+          <div class="summary__item">
+            <div class="summary__label">Net</div>
+            <div id="sumNet" class="summary__value">$0</div>
+          </div>
+        </section>
+
+        <!-- Transactions -->
+        <section class="sectionHead">
+          <h2 class="sectionHead__title">Transactions</h2>
+        </section>
+
+        <section class="card card--glass listCard">
+          <div id="txList" class="txList"></div>
+          <div id="emptyState" class="emptyState hidden">
+            <div class="emptyState__emoji" aria-hidden="true">🧾</div>
+            <div class="emptyState__title">No transactions yet</div>
+            <div class="emptyState__muted">
+              Tap the + button to add your first one.
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Floating Add Button -->
+      <button
+        id="fab"
+        class="fab"
+        aria-label="Add transaction"
+        title="Add transaction"
+      >
+        <span class="fab__plus" aria-hidden="true">+</span>
+      </button>
+
+      <!-- Modal: Add Transaction -->
+      <div
+        id="modalOverlay"
+        class="modalOverlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal card card--glass">
+          <div class="modal__head">
+            <div>
+              <div class="modal__title">Add transaction</div>
+              <div class="modal__muted">Fast entry. You can edit later.</div>
+            </div>
+            <button
+              id="btnModalClose"
+              class="iconBtn"
+              aria-label="Close modal"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form id="txForm" class="form" autocomplete="off">
+            <div class="grid2">
+              <label class="field">
+                <span class="field__label">Date</span>
+                <input id="txDate" class="input" type="date" required />
+              </label>
+
+              <div class="field">
+                <span class="field__label">Type</span>
+                <div
+                  class="segmented"
+                  role="tablist"
+                  aria-label="Transaction type"
+                >
+                  <button
+                    id="typeExpense"
+                    class="segmented__btn isActive"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                  >
+                    Expense
+                  </button>
+                  <button
+                    id="typeIncome"
+                    class="segmented__btn"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                  >
+                    Income
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <label class="field">
+              <span class="field__label">Item / description</span>
+              <input
+                id="txDesc"
+                class="input"
+                type="text"
+                placeholder="e.g., Chipotle, Uber, Paycheck"
+              />
+            </label>
+
+            <div class="grid2">
+              <label class="field">
+                <span class="field__label">Amount</span>
+                <div class="money">
+                  <span class="money__prefix" aria-hidden="true">$</span>
+                  <input
+                    id="txAmount"
+                    class="input input--money"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Category</span>
+                <div class="categoryRow">
+                  <select id="txCategory" class="input input--select" required>
+                    <option value="" disabled selected>
+                      Select a category
+                    </option>
+                  </select>
+                  <button
+                    id="btnAddCategory"
+                    class="iconBtn iconBtn--sm"
+                    type="button"
+                    aria-label="Add category"
+                    title="Add category"
+                  >
+                    +
+                  </button>
+                  <button
+                    id="btnManageCategories"
+                    class="iconBtn iconBtn--sm"
+                    type="button"
+                    aria-label="Manage categories"
+                    title="Manage categories"
+                  >
+                    ⚙
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field__label">Notes</span>
+              <input
+                id="txNote"
+                class="input"
+                type="text"
+                placeholder="Optional note..."
+              />
+            </label>
+
+            <button
+              id="btnAddTx"
+              class="btn btn--primary btn--full"
+              type="submit"
+            >
+              Add transaction
+            </button>
+            <div
+              id="txMsg"
+              class="msg hidden"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Tiny toast -->
+      <div
+        id="toast"
+        class="toast hidden"
+        role="status"
+        aria-live="polite"
+      ></div>
+    </div>
+
+    <!-- Modal: Add Category -->
+    <div
+      id="addCatOverlay"
+      class="modalOverlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+    >
+      <div class="modal card card--glass modal--sm">
+        <div class="modal__head">
+          <div>
+            <div class="modal__title">Add Category</div>
+          </div>
+          <button
+            id="btnAddCatClose"
+            class="iconBtn"
+            aria-label="Close add category"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form id="addCatForm" class="form" autocomplete="off">
+          <label class="field">
+            <span class="field__label">Category name</span>
+            <input
+              id="addCatInput"
+              class="input"
+              type="text"
+              placeholder="e.g., Groceries"
+              required
+            />
+          </label>
+
+          <div class="row row--gap row--end">
+            <button id="btnAddCatCancel" class="btn btn--ghost" type="button">
+              Cancel
+            </button>
+            <button id="btnAddCatSave" class="btn btn--primary" type="submit">
+              Save
+            </button>
+          </div>
+
+          <div
+            id="addCatMsg"
+            class="msg hidden"
+            role="status"
+            aria-live="polite"
+          ></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Manage Categories -->
+    <div
+      id="manageCatOverlay"
+      class="modalOverlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+    >
+      <div class="modal card card--glass modal--manage">
+        <div class="modal__head">
+          <div>
+            <div class="modal__title">Categories</div>
+            <div class="modal__muted">
+              Deleting sets category to blank on old transactions.
+            </div>
+          </div>
+          <button
+            id="btnManageCatClose"
+            class="iconBtn"
+            aria-label="Close categories"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div id="manageCatList" class="catList"></div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
