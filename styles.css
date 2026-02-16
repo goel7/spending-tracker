@@ -315,6 +315,64 @@ body {
     border 120ms ease,
     opacity 120ms ease;
 }
+
+.btn__icon {
+  display: inline-block;
+  font-size: 12px;
+  opacity: 0.6;
+  transform: translateY(-1px);
+}
+
+.btn__icon--sliders {
+  width: 20px;
+  height: 16px;
+  position: relative;
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 0.75;
+  transform: translateY(-1px);
+}
+
+.btn__icon--sliders::after {
+  content: "";
+  position: absolute;
+  left: 1.5px;
+  right: 1.5px;
+  top: 2px;
+  height: 2px;
+  background: currentColor;
+  box-shadow:
+    0 5px 0 currentColor,
+    0 10px 0 currentColor;
+  opacity: 0.7;
+}
+
+.btn__icon--sliders::before {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  left: 1px;
+  top: 0.5px;
+  box-shadow:
+    7px 5px 0 currentColor,
+    13px 10px 0 currentColor;
+}
+
+#btnAdvanced .btn__icon {
+  font-size: 24px;
+  opacity: 0.75;
+}
+
+#btnAdvanced {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 12px;
+  display: inline-grid;
+  place-items: center;
+}
 .btn:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.06);
@@ -474,7 +532,7 @@ body {
 
 /* App view */
 .sectionHead {
-  margin-top: 18px;
+  margin-top: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -489,6 +547,177 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.filtersPanel {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn--filters {
+  display: none;
+}
+
+.searchField {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.searchField__icon {
+  position: absolute;
+  right: 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.input--search {
+  padding-left: 14px;
+  padding-right: 34px;
+  min-width: 220px;
+}
+
+.filterGroup {
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+
+.filterGroup .btn {
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  font-weight: 600;
+  position: relative;
+}
+
+.filterGroup .btn:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 60%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filterGroup .btn.isActive::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 2px;
+  background: rgba(100, 160, 255, 0.8);
+  width: var(--underline-width, 20px);
+}
+
+.selectWrap--filter .input--selectInline {
+  min-width: 170px;
+}
+
+.categoryFilter {
+  position: relative;
+  display: inline-block;
+  min-width: 170px;
+}
+
+.categoryFilter__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.categoryFilter__icon {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.categoryFilter__toggle {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.categoryFilter__toggle::after {
+  content: "↕";
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.categoryFilter__panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  padding: 8px;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.categoryFilter__list {
+  display: grid;
+  gap: 4px;
+}
+
+.categoryFilter__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+
+.categoryFilter__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.categoryFilter__item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: rgba(100, 160, 255, 0.8);
+}
+
+.categoryFilter__label {
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .monthCard {
@@ -663,9 +892,89 @@ body {
 }
 
 @media (max-width: 620px) {
+  .sectionHead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
   .sectionHead__right {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "search filters"
+      "panel panel";
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+  .searchField,
+  .filtersPanel,
+  .selectWrap--filter {
+    width: 100%;
+  }
+  .searchField {
+    grid-area: search;
+  }
+  .btn--filters {
+    display: inline-flex;
+    width: 100%;
+    justify-content: center;
+    padding: 10px 12px;
+    grid-area: filters;
+  }
+  .filtersPanel {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.22);
+    grid-area: panel;
+  }
+  .filtersPanel.isOpen {
+    display: flex;
+  }
+  .filterGroup {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    width: 100%;
+  }
+  .filterGroup .btn {
+    flex: 1;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 12px;
+    position: relative;
+  }
+  .filterGroup .btn:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60%;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .filterGroup .btn:last-child {
+    border-right: none;
+  }
+  .filterGroup .btn.isActive::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 2px;
+    background: rgba(100, 160, 255, 0.8);
+    width: var(--underline-width, 20px);
+  }
+  .selectWrap--filter .input--selectInline {
+    text-align: left;
   }
   .monthCard__controls {
     width: 100%;
@@ -692,6 +1001,21 @@ body {
   .input--sm {
     width: 100%;
     min-width: 0;
+  }
+
+  .categoryFilter {
+    width: 100%;
+  }
+
+  .categoryFilter__panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 100%;
+    margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    width: auto;
   }
 }
 

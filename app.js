@@ -49,6 +49,16 @@ const txMsg = $("#txMsg");
 
 const txList = $("#txList");
 const emptyState = $("#emptyState");
+const emptyTitle = document.querySelector("#emptyState .emptyState__title");
+const emptyMuted = document.querySelector("#emptyState .emptyState__muted");
+
+const txSearch = $("#txSearch");
+const filterAll = $("#filterAll");
+const filterSpent = $("#filterSpent");
+const filterEarned = $("#filterEarned");
+const categoryFilter = $("#categoryFilter");
+const btnFiltersToggle = $("#btnFiltersToggle");
+const filtersPanel = $("#filtersPanel");
 
 const monthSelect = $("#monthSelect");
 const monthSpent = $("#monthSpent");
@@ -79,6 +89,56 @@ let authMode = "login"; // "login" | "signup"
 let txType = "expense"; // "expense" | "income"
 let confirmResolve = null;
 let lastItems = [];
+let filterType = "all"; // all | expense | income
+let filterCategory = []; // array of selected categories
+let filterSearch = "";
+
+const categoryFilterToggle = $("#categoryFilterToggle");
+const categoryFilterPanel = $("#categoryFilterPanel");
+const categoryFilterList = $("#categoryFilterList");
+
+if (categoryFilterToggle && categoryFilterPanel) {
+  categoryFilterToggle.addEventListener("click", () => {
+    const isOpen = categoryFilterPanel.classList.toggle("hidden");
+    categoryFilterToggle.setAttribute("aria-expanded", String(!isOpen));
+  });
+
+  document.addEventListener("click", (e) => {
+    if (
+      !categoryFilterToggle.contains(e.target) &&
+      !categoryFilterPanel.contains(e.target)
+    ) {
+      categoryFilterPanel.classList.add("hidden");
+      categoryFilterToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+if (btnFiltersToggle && filtersPanel) {
+  btnFiltersToggle.addEventListener("click", () => {
+    const isOpen = filtersPanel.classList.toggle("isOpen");
+    btnFiltersToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+}
+
+// Set filter button underline widths based on text
+function setFilterUnderlineWidths() {
+  const buttons = [filterAll, filterSpent, filterEarned];
+  buttons.forEach((btn) => {
+    const span = document.createElement("span");
+    span.style.visibility = "hidden";
+    span.style.position = "absolute";
+    span.style.whiteSpace = "nowrap";
+    span.style.font = window.getComputedStyle(btn).font;
+    span.textContent = btn.textContent;
+    document.body.appendChild(span);
+    const width = span.offsetWidth + 4; // add small padding
+    span.remove();
+    btn.style.setProperty("--underline-width", `${width}px`);
+  });
+}
+
+setFilterUnderlineWidths();
 
 const MONTH_SELECTION_KEY = "spendingTrackerSelectedMonth";
 
@@ -86,9 +146,11 @@ const SUPABASE_URL = "https://tnxumglxoblwyclxgpuy.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRueHVtZ2x4b2Jsd3ljbHhncHV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDg5MTYsImV4cCI6MjA4NjUyNDkxNn0.2t6XPzYbydM-UbQZzNDQAw4fvleS3qAgAXKpgm9zXRg";
 const supabaseLib = window.supabase;
+console.log("Supabase library available:", !!supabaseLib);
 const supabaseClient = supabaseLib?.createClient
   ? supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
+console.log("Supabase client created:", !!supabaseClient);
 
 let currentUserId = null;
 
@@ -607,6 +669,92 @@ function syncMonthSelector(items) {
   applySelectedMonth(selectedKey);
 }
 
+async function syncCategoryFilter() {
+  const categories = await fetchCategories();
+  categoryFilterList.innerHTML = "";
+
+  categories.forEach((catItem) => {
+    const name = catItem.name || catItem;
+    const label = document.createElement("label");
+    label.className = "categoryFilter__item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = name;
+    checkbox.checked = filterCategory.includes(name);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        filterCategory = [...filterCategory, name];
+      } else {
+        filterCategory = filterCategory.filter((c) => c !== name);
+      }
+      updateCategoryLabel();
+      const filtered = getFilteredItems(lastItems);
+      const isFiltered =
+        filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+      renderList(filtered, isFiltered);
+    });
+
+    const text = document.createElement("span");
+    text.className = "categoryFilter__label";
+    text.textContent = `${categoryEmoji(name)} ${name}`;
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    categoryFilterList.appendChild(label);
+  });
+}
+
+function updateCategoryLabel() {
+  if (filterCategory.length === 0) {
+    categoryFilterToggle.textContent = "All categories";
+  } else if (filterCategory.length === 1) {
+    categoryFilterToggle.textContent = filterCategory[0];
+  } else {
+    categoryFilterToggle.textContent = `${filterCategory.length} categories`;
+  }
+}
+
+function setFilterButtons() {
+  const map = {
+    all: filterAll,
+    expense: filterSpent,
+    income: filterEarned,
+  };
+  [filterAll, filterSpent, filterEarned].forEach((btn) =>
+    btn.classList.remove("isActive"),
+  );
+  map[filterType]?.classList.add("isActive");
+}
+
+function getFilteredItems(items) {
+  let filtered = items;
+
+  if (filterType !== "all") {
+    filtered = filtered.filter((it) => it.type === filterType);
+  }
+  if (filterCategory.length > 0) {
+    filtered = filtered.filter((it) => filterCategory.includes(it.category));
+  }
+  if (filterSearch) {
+    const term = filterSearch.toLowerCase();
+    filtered = filtered.filter((it) => {
+      const hay = [
+        it.description,
+        it.category,
+        it.note,
+        String(it.amount ?? ""),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(term);
+    });
+  }
+
+  return filtered;
+}
+
 let editingId = null;
 
 function formatRowDate(dateStr) {
@@ -622,10 +770,19 @@ function closeAllMenus() {
   document.querySelectorAll(".menu").forEach((m) => m.remove());
 }
 
-function renderList(items) {
+function renderList(items, isFiltered = false) {
   txList.innerHTML = "";
 
   if (!items.length) {
+    if (emptyTitle && emptyMuted) {
+      if (isFiltered) {
+        emptyTitle.textContent = "No matching transactions";
+        emptyMuted.textContent = "Try adjusting your search or filters.";
+      } else {
+        emptyTitle.textContent = "No transactions yet";
+        emptyMuted.textContent = "Tap the + button to add your first one.";
+      }
+    }
     show(emptyState);
     return;
   }
@@ -746,8 +903,12 @@ function renderList(items) {
 async function render() {
   const items = await fetchTransactions();
   lastItems = items;
+  await syncCategoryFilter();
   syncMonthSelector(items);
-  renderList(items);
+  const filtered = getFilteredItems(items);
+  const isFiltered =
+    filterType !== "all" || filterCategory !== "all" || !!filterSearch;
+  renderList(filtered, isFiltered);
 }
 
 async function startEdit(id) {
@@ -816,6 +977,41 @@ monthSelect.addEventListener("change", (e) => {
   applySelectedMonth(key);
 });
 
+txSearch.addEventListener("input", (e) => {
+  filterSearch = e.target.value.trim();
+  const filtered = getFilteredItems(lastItems);
+  const isFiltered =
+    filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+  renderList(filtered, isFiltered);
+});
+
+filterAll.addEventListener("click", () => {
+  filterType = "all";
+  setFilterButtons();
+  const filtered = getFilteredItems(lastItems);
+  const isFiltered =
+    filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+  renderList(filtered, isFiltered);
+});
+
+filterSpent.addEventListener("click", () => {
+  filterType = "expense";
+  setFilterButtons();
+  const filtered = getFilteredItems(lastItems);
+  const isFiltered =
+    filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+  renderList(filtered, isFiltered);
+});
+
+filterEarned.addEventListener("click", () => {
+  filterType = "income";
+  setFilterButtons();
+  const filtered = getFilteredItems(lastItems);
+  const isFiltered =
+    filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+  renderList(filtered, isFiltered);
+});
+
 btnAdvanced.addEventListener("click", () => {
   const { start, end } = rangeFromMonthKey(monthSelect.value);
   rangeStart.value = start;
@@ -854,9 +1050,17 @@ btnRangeApply.addEventListener("click", () => {
 });
 
 // auth toggle
-btnAuthToggle.addEventListener("click", () => {
-  setAuthMode(authMode === "login" ? "signup" : "login");
-});
+if (btnAuthToggle) {
+  btnAuthToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    console.log("Auth toggle clicked, current mode:", authMode);
+    const newMode = authMode === "login" ? "signup" : "login";
+    console.log("Switching to:", newMode);
+    setAuthMode(newMode);
+  });
+} else {
+  console.error("btnAuthToggle button not found!");
+}
 
 // auth submit
 authForm.addEventListener("submit", async (e) => {

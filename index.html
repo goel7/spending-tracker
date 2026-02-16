@@ -145,7 +145,7 @@
                 class="btn btn--ghost btn--sm"
                 type="button"
               >
-                Advanced
+                <span class="btn__icon" aria-hidden="true">⚙</span>
               </button>
             </div>
           </div>
@@ -169,6 +169,82 @@
         <!-- Transactions -->
         <section class="sectionHead">
           <h2 class="sectionHead__title">Transactions</h2>
+          <div class="sectionHead__right">
+            <label class="searchField" aria-label="Search">
+              <span class="searchField__icon" aria-hidden="true">🔎</span>
+              <input
+                id="txSearch"
+                class="input input--sm input--search"
+                type="search"
+                placeholder="Search..."
+              />
+            </label>
+            <button
+              id="btnFiltersToggle"
+              class="btn btn--ghost btn--sm btn--filters"
+              type="button"
+              aria-label="Filters"
+              aria-expanded="false"
+              aria-controls="filtersPanel"
+            >
+              <span
+                class="btn__icon btn__icon--sliders"
+                aria-hidden="true"
+              ></span>
+            </button>
+
+            <div id="filtersPanel" class="filtersPanel">
+              <div class="filterGroup" role="group" aria-label="Filter type">
+                <button
+                  id="filterAll"
+                  class="btn btn--ghost btn--sm isActive"
+                  type="button"
+                >
+                  All
+                </button>
+                <button
+                  id="filterSpent"
+                  class="btn btn--ghost btn--sm"
+                  type="button"
+                >
+                  Spent
+                </button>
+                <button
+                  id="filterEarned"
+                  class="btn btn--ghost btn--sm"
+                  type="button"
+                >
+                  Earned
+                </button>
+              </div>
+
+              <div class="categoryFilter">
+                <div class="categoryFilter__header">
+                  <button
+                    id="categoryFilterToggle"
+                    class="categoryFilter__toggle"
+                    type="button"
+                    aria-label="Filter by category"
+                    aria-expanded="false"
+                    aria-controls="categoryFilterPanel"
+                  >
+                    All categories
+                  </button>
+                </div>
+                <div
+                  id="categoryFilterPanel"
+                  class="categoryFilter__panel hidden"
+                  role="group"
+                  aria-label="Filter by category"
+                >
+                  <div
+                    class="categoryFilter__list"
+                    id="categoryFilterList"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section class="card card--glass listCard">
