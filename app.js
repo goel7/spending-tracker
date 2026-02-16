@@ -30,6 +30,8 @@ const txDate = $("#txDate");
 const txDesc = $("#txDesc");
 const txAmount = $("#txAmount");
 const txCategory = $("#txCategory");
+const txCategoryToggle = $("#txCategoryToggle");
+const txCategoryPanel = $("#txCategoryPanel");
 const txNote = $("#txNote");
 const btnAddCategory = $("#btnAddCategory");
 const btnManageCategories = $("#btnManageCategories");
@@ -38,6 +40,7 @@ const manageCatOverlay = $("#manageCatOverlay");
 const btnAddCatClose = $("#btnAddCatClose");
 const btnAddCatCancel = $("#btnAddCatCancel");
 const btnManageCatClose = $("#btnManageCatClose");
+const btnManageCatAdd = $("#btnManageCatAdd");
 const addCatForm = $("#addCatForm");
 const addCatInput = $("#addCatInput");
 const addCatMsg = $("#addCatMsg");
@@ -118,6 +121,32 @@ if (btnFiltersToggle && filtersPanel) {
   btnFiltersToggle.addEventListener("click", () => {
     const isOpen = filtersPanel.classList.toggle("isOpen");
     btnFiltersToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+}
+
+if (txCategoryToggle && txCategoryPanel) {
+  const closeTxCategoryPanel = () => {
+    txCategoryPanel.classList.add("hidden");
+    txCategoryToggle.setAttribute("aria-expanded", "false");
+  };
+
+  txCategoryToggle.addEventListener("click", () => {
+    const isOpen = !txCategoryPanel.classList.contains("hidden");
+    if (isOpen) {
+      closeTxCategoryPanel();
+    } else {
+      txCategoryPanel.classList.remove("hidden");
+      txCategoryToggle.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (
+      !txCategoryToggle.contains(e.target) &&
+      !txCategoryPanel.contains(e.target)
+    ) {
+      closeTxCategoryPanel();
+    }
   });
 }
 
@@ -259,22 +288,42 @@ function normalizeCategoryName(name) {
 
 async function renderCategoryOptions(selected = "") {
   const categories = await fetchCategories();
-  txCategory.innerHTML = "";
+  if (txCategory) txCategory.value = selected || "";
 
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.disabled = true;
-  placeholder.selected = !selected;
-  placeholder.textContent = "Select a category";
-  txCategory.appendChild(placeholder);
+  if (txCategoryToggle) {
+    txCategoryToggle.textContent = selected || "Select a category";
+  }
+
+  if (!txCategoryPanel) return;
+  txCategoryPanel.innerHTML = "";
+
+  if (!categories.length) {
+    const empty = document.createElement("div");
+    empty.className = "categorySelect__option";
+    empty.textContent = "No categories yet";
+    empty.setAttribute("aria-disabled", "true");
+    txCategoryPanel.appendChild(empty);
+    return;
+  }
 
   categories.forEach((catItem) => {
     const cat = catItem.name || catItem;
-    const opt = document.createElement("option");
-    opt.value = cat;
-    opt.textContent = `${categoryEmoji(cat)} ${cat}`;
-    if (cat === selected) opt.selected = true;
-    txCategory.appendChild(opt);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "categorySelect__option";
+    if (cat === selected) btn.classList.add("isSelected");
+    btn.setAttribute("role", "option");
+    btn.setAttribute("aria-selected", cat === selected ? "true" : "false");
+    btn.textContent = cat;
+    btn.addEventListener("click", () => {
+      txCategory.value = cat;
+      txCategoryToggle.textContent = cat;
+      txCategoryPanel.classList.add("hidden");
+      txCategoryToggle.setAttribute("aria-expanded", "false");
+      txCategory.dispatchEvent(new Event("change"));
+      validateTxForm();
+    });
+    txCategoryPanel.appendChild(btn);
   });
 }
 
@@ -333,12 +382,14 @@ async function openModal() {
   txNote.value = "";
   setType("expense");
   hide(txMsg);
+  if (txCategoryPanel) txCategoryPanel.classList.add("hidden");
+  if (txCategoryToggle) txCategoryToggle.setAttribute("aria-expanded", "false");
 
   modalOverlay.setAttribute("aria-hidden", "false");
   show(modalOverlay);
 
-  // focus amount quickly
-  setTimeout(() => txAmount.focus(), 50);
+  // focus description quickly
+  setTimeout(() => txDesc.focus(), 50);
 }
 
 function closeModal() {
@@ -417,14 +468,20 @@ async function renderManageCategories() {
 
     const name = document.createElement("div");
     name.className = "catName";
-    name.textContent = `${categoryEmoji(cat)} ${cat}`;
-
-    const note = document.createElement("div");
-    note.className = "catNote";
-    note.textContent = "Deleting sets category to blank on old transactions.";
+    name.textContent = cat;
 
     meta.appendChild(name);
-    meta.appendChild(note);
+
+    const actions = document.createElement("div");
+    actions.className = "catActions";
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "btn btn--ghost btn--sm";
+    renameBtn.type = "button";
+    renameBtn.textContent = "Rename";
+    renameBtn.addEventListener("click", () =>
+      renameCategory({ id: catItem.id, name: cat }),
+    );
 
     const delBtn = document.createElement("button");
     delBtn.className = "btn btn--danger btn--sm";
@@ -433,7 +490,9 @@ async function renderManageCategories() {
     delBtn.addEventListener("click", () => deleteCategory(cat));
 
     item.appendChild(meta);
-    item.appendChild(delBtn);
+    actions.appendChild(renameBtn);
+    actions.appendChild(delBtn);
+    item.appendChild(actions);
     manageCatList.appendChild(item);
   });
 }
@@ -507,20 +566,51 @@ async function deleteCategory(cat) {
   showToast("Category deleted");
 }
 
-function categoryEmoji(cat) {
-  const map = {
-    Food: "🍔",
-    Coffee: "☕",
-    Groceries: "🛒",
-    Transport: "🚗",
-    Bills: "🧾",
-    Rent: "🏠",
-    Shopping: "🛍️",
-    Entertainment: "🎮",
-    Health: "🏥",
-    Other: "🧩",
-  };
-  return map[cat] || "🧩";
+async function renameCategory(catItem) {
+  if (!supabaseClient) return;
+  const oldName = catItem?.name || "";
+  const input = window.prompt("Rename category", oldName);
+  if (input === null) return;
+
+  const nextName = normalizeCategoryName(input);
+  if (!nextName) {
+    showToast("Name can’t be empty");
+    return;
+  }
+  if (nextName.toLowerCase() === oldName.toLowerCase()) return;
+
+  const categories = await fetchCategories();
+  const exists = categories.some(
+    (c) => (c.name || c).toLowerCase() === nextName.toLowerCase(),
+  );
+  if (exists) {
+    showToast("That category already exists");
+    return;
+  }
+
+  const { error: catError } = await supabaseClient
+    .from("categories")
+    .update({ name: nextName })
+    .eq("name", oldName)
+    .eq("user_id", currentUserId);
+
+  const { error: txError } = await supabaseClient
+    .from("transactions")
+    .update({ category: nextName })
+    .eq("category", oldName)
+    .eq("user_id", currentUserId);
+
+  if (catError || txError) {
+    showToast("Failed to rename category");
+    return;
+  }
+
+  filterCategory = filterCategory.map((c) => (c === oldName ? nextName : c));
+  updateCategoryLabel();
+  await renderCategoryOptions("");
+  await renderManageCategories();
+  await render();
+  showToast("Category renamed");
 }
 
 function money(n) {
@@ -697,7 +787,7 @@ async function syncCategoryFilter() {
 
     const text = document.createElement("span");
     text.className = "categoryFilter__label";
-    text.textContent = `${categoryEmoji(name)} ${name}`;
+    text.textContent = name;
 
     label.appendChild(checkbox);
     label.appendChild(text);
@@ -925,6 +1015,8 @@ async function startEdit(id) {
   await renderCategoryOptions(it.category || "");
   txNote.value = it.note || "";
   setType(it.type || "expense");
+  if (txCategoryPanel) txCategoryPanel.classList.add("hidden");
+  if (txCategoryToggle) txCategoryToggle.setAttribute("aria-expanded", "false");
 
   // change modal title + button text
   document.querySelector(".modal__title").textContent = "Edit transaction";
@@ -1145,6 +1237,9 @@ btnAddCategory.addEventListener("click", () => openAddCatModal());
 btnManageCategories.addEventListener("click", () => openManageCatModal());
 btnAddCatClose.addEventListener("click", () => closeAddCatModal());
 btnAddCatCancel.addEventListener("click", () => closeAddCatModal());
+if (btnManageCatAdd) {
+  btnManageCatAdd.addEventListener("click", () => openAddCatModal());
+}
 btnManageCatClose.addEventListener("click", () => closeManageCatModal());
 
 btnConfirmClose.addEventListener("click", () => closeConfirm(false));
@@ -1240,6 +1335,19 @@ function validateTxForm() {
   txCategory.addEventListener(ev, validateTxForm);
   txDate.addEventListener(ev, validateTxForm);
   txDesc.addEventListener(ev, validateTxForm);
+});
+
+// Enter key moves to next field in add transaction form
+txForm.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.shiftKey) return;
+
+  const order = [txDesc, txAmount, txCategoryToggle, txNote, btnAddTx];
+  const idx = order.indexOf(e.target);
+  if (idx === -1 || idx === order.length - 1) return;
+
+  e.preventDefault();
+  const next = order[idx + 1];
+  if (next) next.focus();
 });
 
 // add transaction

@@ -360,11 +360,24 @@
               <label class="field">
                 <span class="field__label">Category</span>
                 <div class="categoryRow">
-                  <select id="txCategory" class="input input--select" required>
-                    <option value="" disabled selected>
+                  <div class="categorySelect" id="txCategorySelect">
+                    <button
+                      id="txCategoryToggle"
+                      class="input input--select categorySelect__toggle"
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-controls="txCategoryPanel"
+                    >
                       Select a category
-                    </option>
-                  </select>
+                    </button>
+                    <input id="txCategory" type="hidden" value="" />
+                    <div
+                      id="txCategoryPanel"
+                      class="categorySelect__panel hidden"
+                      role="listbox"
+                    ></div>
+                  </div>
                   <button
                     id="btnAddCategory"
                     class="iconBtn iconBtn--sm"
@@ -550,17 +563,26 @@
           <div>
             <div class="modal__title">Categories</div>
             <div class="modal__muted">
-              Deleting sets category to blank on old transactions.
+              Create, rename, or delete categories.
             </div>
           </div>
-          <button
-            id="btnManageCatClose"
-            class="iconBtn"
-            aria-label="Close categories"
-            title="Close"
-          >
-            ✕
-          </button>
+          <div class="modal__actions">
+            <button
+              id="btnManageCatAdd"
+              class="btn btn--ghost btn--sm"
+              type="button"
+            >
+              + Add
+            </button>
+            <button
+              id="btnManageCatClose"
+              class="iconBtn"
+              aria-label="Close categories"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div id="manageCatList" class="catList"></div>

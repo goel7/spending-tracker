@@ -287,6 +287,67 @@ body {
   gap: 10px;
 }
 
+.categorySelect {
+  position: relative;
+}
+
+.categorySelect__toggle {
+  width: 100%;
+  text-align: left;
+  padding-right: 34px;
+  position: relative;
+  cursor: pointer;
+}
+
+.categorySelect__toggle::after {
+  content: "↕";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.categorySelect__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  padding: 8px;
+  z-index: 40;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.categorySelect__option {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.categorySelect__option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.categorySelect__option.isSelected {
+  background: rgba(100, 160, 255, 0.18);
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -1222,6 +1283,10 @@ body {
   padding: 18px;
   z-index: 20;
 }
+
+#addCatOverlay {
+  z-index: 30;
+}
 .modal {
   width: min(560px, 100%);
   padding: 18px;
@@ -1260,6 +1325,16 @@ body {
   margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#btnManageCatAdd {
+  white-space: nowrap;
 }
 
 .grid2 {
@@ -1345,7 +1420,7 @@ body {
 
 .catList {
   display: grid;
-  gap: 12px;
+  gap: 0;
   overflow: auto;
   padding-right: 2px;
 }
@@ -1355,20 +1430,29 @@ body {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.16);
+  padding: 14px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.catItem:last-child {
+  border-bottom: none;
 }
 
 .catMeta {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .catName {
   font-size: 18px;
   font-weight: 800;
+}
+
+.catActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .catNote {
