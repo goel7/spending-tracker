@@ -54,6 +54,10 @@ const txList = $("#txList");
 const emptyState = $("#emptyState");
 const emptyTitle = document.querySelector("#emptyState .emptyState__title");
 const emptyMuted = document.querySelector("#emptyState .emptyState__muted");
+const txPager = $("#txPager");
+const txPrev = $("#txPrev");
+const txNext = $("#txNext");
+const txPagerLabel = $("#txPagerLabel");
 
 const txSearch = $("#txSearch");
 const filterAll = $("#filterAll");
@@ -95,6 +99,8 @@ let lastItems = [];
 let filterType = "all"; // all | expense | income
 let filterCategory = []; // array of selected categories
 let filterSearch = "";
+let txPage = 1;
+const TX_PAGE_SIZE = 30;
 
 const categoryFilterToggle = $("#categoryFilterToggle");
 const categoryFilterPanel = $("#categoryFilterPanel");
@@ -121,6 +127,26 @@ if (btnFiltersToggle && filtersPanel) {
   btnFiltersToggle.addEventListener("click", () => {
     const isOpen = filtersPanel.classList.toggle("isOpen");
     btnFiltersToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+}
+
+if (txPrev && txNext) {
+  txPrev.addEventListener("click", () => {
+    if (txPage > 1) {
+      txPage -= 1;
+      const filtered = getFilteredItems(lastItems);
+      const isFiltered =
+        filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+      renderList(filtered, isFiltered);
+    }
+  });
+
+  txNext.addEventListener("click", () => {
+    txPage += 1;
+    const filtered = getFilteredItems(lastItems);
+    const isFiltered =
+      filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+    renderList(filtered, isFiltered);
   });
 }
 
@@ -778,6 +804,7 @@ async function syncCategoryFilter() {
       } else {
         filterCategory = filterCategory.filter((c) => c !== name);
       }
+      txPage = 1;
       updateCategoryLabel();
       const filtered = getFilteredItems(lastItems);
       const isFiltered =
@@ -874,6 +901,7 @@ function renderList(items, isFiltered = false) {
       }
     }
     show(emptyState);
+    if (txPager) txPager.classList.add("hidden");
     return;
   }
   hide(emptyState);
@@ -883,7 +911,24 @@ function renderList(items, isFiltered = false) {
     return (a.createdAt || 0) < (b.createdAt || 0) ? 1 : -1;
   });
 
-  for (const it of sorted) {
+  const totalPages = Math.max(1, Math.ceil(sorted.length / TX_PAGE_SIZE));
+  if (txPage > totalPages) txPage = totalPages;
+  if (txPage < 1) txPage = 1;
+  const start = (txPage - 1) * TX_PAGE_SIZE;
+  const pageItems = sorted.slice(start, start + TX_PAGE_SIZE);
+
+  if (txPager && txPrev && txNext && txPagerLabel) {
+    if (sorted.length > TX_PAGE_SIZE) {
+      txPager.classList.remove("hidden");
+      txPrev.disabled = txPage === 1;
+      txNext.disabled = txPage === totalPages;
+      txPagerLabel.textContent = `Page ${txPage} of ${totalPages}`;
+    } else {
+      txPager.classList.add("hidden");
+    }
+  }
+
+  for (const it of pageItems) {
     const row = document.createElement("div");
     row.className = "txRow";
     row.dataset.id = it.id;
@@ -1071,6 +1116,7 @@ monthSelect.addEventListener("change", (e) => {
 
 txSearch.addEventListener("input", (e) => {
   filterSearch = e.target.value.trim();
+  txPage = 1;
   const filtered = getFilteredItems(lastItems);
   const isFiltered =
     filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
@@ -1079,6 +1125,7 @@ txSearch.addEventListener("input", (e) => {
 
 filterAll.addEventListener("click", () => {
   filterType = "all";
+  txPage = 1;
   setFilterButtons();
   const filtered = getFilteredItems(lastItems);
   const isFiltered =
@@ -1088,6 +1135,7 @@ filterAll.addEventListener("click", () => {
 
 filterSpent.addEventListener("click", () => {
   filterType = "expense";
+  txPage = 1;
   setFilterButtons();
   const filtered = getFilteredItems(lastItems);
   const isFiltered =
@@ -1097,6 +1145,7 @@ filterSpent.addEventListener("click", () => {
 
 filterEarned.addEventListener("click", () => {
   filterType = "income";
+  txPage = 1;
   setFilterButtons();
   const filtered = getFilteredItems(lastItems);
   const isFiltered =

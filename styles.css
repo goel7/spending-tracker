@@ -1090,6 +1090,21 @@ body {
   gap: 8px;
 }
 
+.txPager {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.txPager__label {
+  color: var(--muted2);
+  font-size: 13px;
+  min-width: 120px;
+  text-align: center;
+}
+
 .dayHeader {
   margin: 10px 6px 2px;
   color: var(--muted2);
