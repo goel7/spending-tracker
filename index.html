@@ -122,19 +122,47 @@
             </button>
           </div>
         </header>
-        <!-- Summary strip -->
-        <section class="summary card card--glass">
-          <div class="summary__item">
-            <div class="summary__label">Spent</div>
-            <div id="sumSpent" class="summary__value">$0</div>
+        <!-- Monthly overview -->
+        <section class="card card--glass monthCard">
+          <div class="monthCard__head">
+            <div class="monthCard__intro">
+              <div class="monthCard__title">Monthly overview</div>
+              <div class="monthCard__sub">
+                Compare spending and income by month.
+              </div>
+            </div>
+            <div class="monthCard__controls">
+              <div class="selectWrap">
+                <span class="selectWrap__icon" aria-hidden="true">🗓️</span>
+                <select
+                  id="monthSelect"
+                  class="input input--select input--sm input--selectInline"
+                  aria-label="Select month"
+                ></select>
+              </div>
+              <button
+                id="btnAdvanced"
+                class="btn btn--ghost btn--sm"
+                type="button"
+              >
+                Advanced
+              </button>
+            </div>
           </div>
-          <div class="summary__item">
-            <div class="summary__label">Earned</div>
-            <div id="sumEarned" class="summary__value">$0</div>
-          </div>
-          <div class="summary__item">
-            <div class="summary__label">Net</div>
-            <div id="sumNet" class="summary__value">$0</div>
+
+          <div class="monthStats">
+            <div class="statTile statTile--expense">
+              <div class="statTile__label">Spent</div>
+              <div id="monthSpent" class="statTile__value">$0</div>
+            </div>
+            <div class="statTile statTile--income">
+              <div class="statTile__label">Earned</div>
+              <div id="monthEarned" class="statTile__value">$0</div>
+            </div>
+            <div class="statTile statTile--net">
+              <div class="statTile__label">Net</div>
+              <div id="monthNet" class="statTile__value">$0</div>
+            </div>
           </div>
         </section>
 
@@ -307,6 +335,66 @@
               aria-live="polite"
             ></div>
           </form>
+        </div>
+      </div>
+
+      <!-- Modal: Advanced range -->
+      <div
+        id="rangeOverlay"
+        class="modalOverlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal card card--glass modal--range">
+          <div class="modal__head">
+            <div>
+              <div class="modal__title">Date range totals</div>
+            </div>
+            <button
+              id="btnRangeClose"
+              class="iconBtn"
+              aria-label="Close advanced range"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div id="rangePanel" class="rangePanel">
+            <div class="rangePanel__controls">
+              <label class="field field--compact">
+                <span class="field__label">Start</span>
+                <input id="rangeStart" class="input input--sm" type="date" />
+              </label>
+              <label class="field field--compact">
+                <span class="field__label">End</span>
+                <input id="rangeEnd" class="input input--sm" type="date" />
+              </label>
+              <button
+                id="btnRangeApply"
+                class="btn btn--primary btn--sm"
+                type="button"
+              >
+                Apply
+              </button>
+            </div>
+
+            <div class="rangeStats">
+              <div class="statTile statTile--expense">
+                <div class="statTile__label">Spent</div>
+                <div id="rangeSpent" class="statTile__value">$0</div>
+              </div>
+              <div class="statTile statTile--income">
+                <div class="statTile__label">Earned</div>
+                <div id="rangeEarned" class="statTile__value">$0</div>
+              </div>
+              <div class="statTile statTile--net">
+                <div class="statTile__label">Net</div>
+                <div id="rangeNet" class="statTile__value">$0</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

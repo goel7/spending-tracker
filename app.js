@@ -50,9 +50,21 @@ const txMsg = $("#txMsg");
 const txList = $("#txList");
 const emptyState = $("#emptyState");
 
-const sumSpent = $("#sumSpent");
-const sumEarned = $("#sumEarned");
-const sumNet = $("#sumNet");
+const monthSelect = $("#monthSelect");
+const monthSpent = $("#monthSpent");
+const monthEarned = $("#monthEarned");
+const monthNet = $("#monthNet");
+
+const btnAdvanced = $("#btnAdvanced");
+const rangeOverlay = $("#rangeOverlay");
+const btnRangeClose = $("#btnRangeClose");
+const rangePanel = $("#rangePanel");
+const rangeStart = $("#rangeStart");
+const rangeEnd = $("#rangeEnd");
+const btnRangeApply = $("#btnRangeApply");
+const rangeSpent = $("#rangeSpent");
+const rangeEarned = $("#rangeEarned");
+const rangeNet = $("#rangeNet");
 
 const toast = $("#toast");
 
@@ -66,6 +78,9 @@ const btnConfirmOk = $("#btnConfirmOk");
 let authMode = "login"; // "login" | "signup"
 let txType = "expense"; // "expense" | "income"
 let confirmResolve = null;
+let lastItems = [];
+
+const MONTH_SELECTION_KEY = "spendingTrackerSelectedMonth";
 
 const SUPABASE_URL = "https://tnxumglxoblwyclxgpuy.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -96,6 +111,33 @@ function todayISO() {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function monthKeyFromDateStr(dateStr) {
+  if (!dateStr) return "";
+  return String(dateStr).slice(0, 7);
+}
+
+function monthKeyFromDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
+}
+
+function monthLabelFromKey(key) {
+  const [yyyy, mm] = String(key).split("-");
+  if (!yyyy || !mm) return "—";
+  const d = new Date(Number(yyyy), Number(mm) - 1, 1);
+  return d.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function daysInMonthFromKey(key) {
+  const [yyyy, mm] = String(key).split("-");
+  if (!yyyy || !mm) return 0;
+  return new Date(Number(yyyy), Number(mm), 0).getDate();
 }
 
 async function fetchTransactions() {
@@ -421,8 +463,21 @@ function categoryEmoji(cat) {
 
 function money(n) {
   const num = Number(n || 0);
-  const abs = Math.abs(num).toFixed(2);
-  return num < 0 ? `-$${abs}` : `$${abs}`;
+  const abs = Math.abs(num);
+  const formatted = abs < 1000 ? abs.toFixed(2) : formatCompact(abs);
+  return num < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+function formatCompact(value) {
+  if (!Number.isFinite(value)) return "0";
+  if (value === 0) return "0";
+  const formatter = new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    compactDisplay: "short",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  });
+  return formatter.format(value);
 }
 
 function groupLabel(dateStr) {
@@ -443,21 +498,113 @@ function groupLabel(dateStr) {
   });
 }
 
-function renderSummary(items) {
+function buildMonthOptions(items) {
+  const now = new Date();
+  const monthSet = new Set();
+
+  for (let i = 0; i < 12; i += 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthSet.add(monthKeyFromDate(d));
+  }
+
+  items.forEach((it) => {
+    const key = monthKeyFromDateStr(it.date);
+    if (key) monthSet.add(key);
+  });
+
+  const keys = Array.from(monthSet).sort((a, b) => (a < b ? 1 : -1));
+  return keys.map((key) => ({
+    key,
+    label: monthLabelFromKey(key),
+  }));
+}
+
+function renderMonthlySummary(items, selectedKey) {
+  const monthItems = items.filter(
+    (it) => monthKeyFromDateStr(it.date) === selectedKey,
+  );
+
   let spent = 0;
   let earned = 0;
-
-  // (UI prototype) compute on all items
-  for (const it of items) {
+  for (const it of monthItems) {
     const amt = Number(it.amount || 0);
     if (it.type === "expense") spent += amt;
     else earned += amt;
   }
 
   const net = earned - spent;
-  sumSpent.textContent = money(spent);
-  sumEarned.textContent = money(earned);
-  sumNet.textContent = money(net);
+
+  monthSpent.textContent = money(spent);
+  monthEarned.textContent = money(earned);
+  monthNet.textContent = money(net);
+}
+
+function rangeFromMonthKey(key) {
+  if (!key) return { start: "", end: "" };
+  const endDay = String(daysInMonthFromKey(key)).padStart(2, "0");
+  return { start: `${key}-01`, end: `${key}-${endDay}` };
+}
+
+function renderRangeSummary(items, start, end) {
+  if (!start || !end) {
+    rangeSpent.textContent = "$0";
+    rangeEarned.textContent = "$0";
+    rangeNet.textContent = "$0";
+    return;
+  }
+
+  const startKey = String(start);
+  const endKey = String(end);
+  const rangeItems = items.filter(
+    (it) => it.date && it.date >= startKey && it.date <= endKey,
+  );
+
+  let spent = 0;
+  let earned = 0;
+  for (const it of rangeItems) {
+    const amt = Number(it.amount || 0);
+    if (it.type === "expense") spent += amt;
+    else earned += amt;
+  }
+
+  const net = earned - spent;
+  rangeSpent.textContent = money(spent);
+  rangeEarned.textContent = money(earned);
+  rangeNet.textContent = money(net);
+}
+
+function applySelectedMonth(key) {
+  if (!key) return;
+  localStorage.setItem(MONTH_SELECTION_KEY, key);
+  monthSelect.value = key;
+  renderMonthlySummary(lastItems, key);
+
+  if (rangeOverlay && !rangeOverlay.classList.contains("hidden")) {
+    const { start, end } = rangeFromMonthKey(key);
+    rangeStart.value = start;
+    rangeEnd.value = end;
+    renderRangeSummary(lastItems, start, end);
+  }
+}
+
+function syncMonthSelector(items) {
+  const options = buildMonthOptions(items);
+  monthSelect.innerHTML = "";
+
+  options.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.key;
+    option.textContent = opt.label;
+    monthSelect.appendChild(option);
+  });
+
+  const storedKey = localStorage.getItem(MONTH_SELECTION_KEY);
+  const defaultKey = monthKeyFromDate(new Date());
+  const selectedKey = options.some((opt) => opt.key === storedKey)
+    ? storedKey
+    : defaultKey;
+
+  applySelectedMonth(selectedKey);
 }
 
 let editingId = null;
@@ -548,6 +695,19 @@ function renderList(items) {
       const menu = document.createElement("div");
       menu.className = "menu";
 
+      const noteText = it.note?.trim();
+      if (noteText) {
+        const btnNote = document.createElement("button");
+        btnNote.className = "menuBtn";
+        btnNote.type = "button";
+        btnNote.textContent = "View note";
+        btnNote.addEventListener("click", () => {
+          closeAllMenus();
+          showNote(noteText);
+        });
+        menu.appendChild(btnNote);
+      }
+
       const btnEdit = document.createElement("button");
       btnEdit.className = "menuBtn";
       btnEdit.type = "button";
@@ -576,24 +736,7 @@ function renderList(items) {
     right.appendChild(metaRight);
     right.appendChild(kebabWrap);
 
-    const noteWrap = document.createElement("div");
-    noteWrap.className = "txNoteWrap";
-    if (it.note?.trim()) {
-      const noteBtn = document.createElement("button");
-      noteBtn.className = "txNoteBtn";
-      noteBtn.type = "button";
-      noteBtn.setAttribute("aria-label", "View note");
-      noteBtn.setAttribute("title", "View note");
-      noteBtn.textContent = "📝";
-      noteBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        showNote(it.note.trim());
-      });
-      noteWrap.appendChild(noteBtn);
-    }
-
     row.appendChild(left);
-    row.appendChild(noteWrap);
     row.appendChild(right);
 
     txList.appendChild(row);
@@ -602,7 +745,8 @@ function renderList(items) {
 
 async function render() {
   const items = await fetchTransactions();
-  renderSummary(items);
+  lastItems = items;
+  syncMonthSelector(items);
   renderList(items);
 }
 
@@ -666,6 +810,48 @@ async function deleteTx(id) {
 }
 
 /* ---------- Events ---------- */
+
+monthSelect.addEventListener("change", (e) => {
+  const key = e.target.value;
+  applySelectedMonth(key);
+});
+
+btnAdvanced.addEventListener("click", () => {
+  const { start, end } = rangeFromMonthKey(monthSelect.value);
+  rangeStart.value = start;
+  rangeEnd.value = end;
+  renderRangeSummary(lastItems, start, end);
+  rangeOverlay.setAttribute("aria-hidden", "false");
+  show(rangeOverlay);
+});
+
+btnRangeClose.addEventListener("click", () => {
+  rangeOverlay.setAttribute("aria-hidden", "true");
+  hide(rangeOverlay);
+});
+
+rangeOverlay.addEventListener("click", (e) => {
+  if (e.target === rangeOverlay) {
+    rangeOverlay.setAttribute("aria-hidden", "true");
+    hide(rangeOverlay);
+  }
+});
+
+btnRangeApply.addEventListener("click", () => {
+  const start = rangeStart.value;
+  const end = rangeEnd.value;
+
+  if (!start || !end) {
+    showToast("Pick both start and end dates.");
+    return;
+  }
+  if (start > end) {
+    showToast("Start date must be before end date.");
+    return;
+  }
+
+  renderRangeSummary(lastItems, start, end);
+});
 
 // auth toggle
 btnAuthToggle.addEventListener("click", () => {
