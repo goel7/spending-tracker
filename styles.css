@@ -409,6 +409,16 @@ body {
   justify-content: flex-end;
 }
 
+.authActions {
+  width: 100%;
+}
+
+.authActions .btn {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
 /* Buttons */
 .btn {
   border: 1px solid var(--border2);
@@ -581,7 +591,7 @@ body {
   transform: none;
 }
 
-.btn--google {
+.googleBtn {
   background: rgba(255, 255, 255, 0.9);
   color: #111;
   border-color: rgba(255, 255, 255, 0.8);
@@ -590,20 +600,8 @@ body {
   justify-content: center;
   gap: 12px;
 }
-.btn--google:hover {
+.googleBtn:hover {
   background: rgba(255, 255, 255, 0.95);
-}
-
-.googleDot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-weight: 900;
-  color: #111;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .iconBtn {
@@ -1024,7 +1022,14 @@ body {
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 900px) {
+  .authActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .authActions .btn {
+    width: 100%;
+  }
   .sectionHead {
     flex-direction: column;
     align-items: flex-start;
@@ -1463,6 +1468,11 @@ body {
   );
   max-height: calc(100dvh - 36px);
   overflow-y: auto;
+}
+
+#modalOverlay .modal {
+  max-height: none;
+  overflow: visible;
 }
 .modal--sm {
   width: min(480px, 100%);
