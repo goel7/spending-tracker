@@ -66,6 +66,13 @@ const filterEarned = $("#filterEarned");
 const categoryFilter = $("#categoryFilter");
 const btnFiltersToggle = $("#btnFiltersToggle");
 const filtersPanel = $("#filtersPanel");
+const btnSelectMode = $("#btnSelectMode");
+const selectionBar = $("#selectionBar");
+const selectionCount = $("#selectionCount");
+const btnSelectAll = $("#btnSelectAll");
+const btnClearSelection = $("#btnClearSelection");
+const btnDeleteSelected = $("#btnDeleteSelected");
+const btnCloseSelection = $("#btnCloseSelection");
 
 const monthSelect = $("#monthSelect");
 const monthSpent = $("#monthSpent");
@@ -82,6 +89,26 @@ const btnRangeApply = $("#btnRangeApply");
 const rangeSpent = $("#rangeSpent");
 const rangeEarned = $("#rangeEarned");
 const rangeNet = $("#rangeNet");
+
+const btnImport = $("#btnImport");
+const btnExport = $("#btnExport");
+const btnUserMenu = $("#btnUserMenu");
+const headerMenu = $("#headerMenu");
+const importOverlay = $("#importOverlay");
+const btnImportClose = $("#btnImportClose");
+const btnImportCancel = $("#btnImportCancel");
+const btnImportRun = $("#btnImportRun");
+const importFile = $("#importFile");
+const importHasHeader = $("#importHasHeader");
+const importMapDate = $("#importMapDate");
+const importMapDesc = $("#importMapDesc");
+const importMapAmount = $("#importMapAmount");
+const importMapCategory = $("#importMapCategory");
+const importMapNote = $("#importMapNote");
+const importMapType = $("#importMapType");
+const importDefaultType = $("#importDefaultType");
+const importPreviewTable = $("#importPreviewTable");
+const importMsg = $("#importMsg");
 
 const toast = $("#toast");
 
@@ -101,6 +128,14 @@ let filterCategory = []; // array of selected categories
 let filterSearch = "";
 let txPage = 1;
 const TX_PAGE_SIZE = 30;
+
+let selectionMode = false;
+let selectedIds = new Set();
+let lastFilteredItems = [];
+
+let importRows = [];
+let importHeaders = [];
+let importDataRows = [];
 
 const categoryFilterToggle = $("#categoryFilterToggle");
 const categoryFilterPanel = $("#categoryFilterPanel");
@@ -127,6 +162,19 @@ if (btnFiltersToggle && filtersPanel) {
   btnFiltersToggle.addEventListener("click", () => {
     const isOpen = filtersPanel.classList.toggle("isOpen");
     btnFiltersToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+}
+
+if (btnUserMenu && headerMenu) {
+  btnUserMenu.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!btnUserMenu.contains(e.target) && !headerMenu.contains(e.target)) {
+      closeHeaderMenu();
+    }
   });
 }
 
@@ -387,7 +435,7 @@ async function setSignedInUI() {
   hide(authView);
   show(appView);
   show(fab);
-  show(btnLogout); // show logout in header
+  if (btnUserMenu) show(btnUserMenu); // show header menu
   await ensureDefaultCategories();
   await render();
 }
@@ -396,7 +444,8 @@ function setSignedOutUI() {
   show(authView);
   hide(appView);
   hide(fab);
-  hide(btnLogout); // hide logout in header
+  if (btnUserMenu) hide(btnUserMenu); // hide header menu
+  closeHeaderMenu();
 }
 
 async function openModal() {
@@ -455,8 +504,591 @@ function showInline(msg) {
   show(txMsg);
 }
 
+function updateSelectionUI() {
+  if (!selectionBar || !btnSelectMode) return;
+
+  if (selectionMode) {
+    show(selectionBar);
+    btnSelectMode.textContent = "Done";
+  } else {
+    hide(selectionBar);
+    btnSelectMode.textContent = "Select";
+  }
+
+  if (!selectionCount || !btnSelectAll || !btnDeleteSelected) return;
+
+  const count = selectedIds.size;
+  selectionCount.textContent = `${count} selected`;
+  btnDeleteSelected.disabled = count === 0;
+
+  const allSelected =
+    lastFilteredItems.length > 0 && count === lastFilteredItems.length;
+  btnSelectAll.textContent = allSelected ? "Clear all" : "Select all";
+}
+
+function setSelectionMode(next) {
+  selectionMode = next;
+  if (!selectionMode) {
+    selectedIds = new Set();
+  }
+  updateSelectionUI();
+  const filtered = getFilteredItems(lastItems);
+  const isFiltered =
+    filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+  renderList(filtered, isFiltered);
+}
+
+function toggleSelection(id, checked) {
+  if (checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+  updateSelectionUI();
+}
+
+function pruneSelectionToFiltered(items) {
+  if (!selectionMode) return;
+  const allowed = new Set(items.map((it) => it.id));
+  selectedIds = new Set([...selectedIds].filter((id) => allowed.has(id)));
+}
+
+async function deleteSelectedTransactions() {
+  if (!supabaseClient || !currentUserId) return;
+  if (selectedIds.size === 0) return;
+
+  const ok = await openConfirm({
+    title: "Delete selected transactions",
+    subtitle: `Delete ${selectedIds.size} transaction${
+      selectedIds.size === 1 ? "" : "s"
+    }? This can’t be undone.`,
+    okText: "Delete",
+  });
+  if (!ok) return;
+
+  const ids = Array.from(selectedIds);
+  const chunkSize = 200;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const { error } = await supabaseClient
+      .from("transactions")
+      .delete()
+      .in("id", chunk)
+      .eq("user_id", currentUserId);
+    if (error) {
+      showToast("Failed to delete selected transactions");
+      return;
+    }
+  }
+
+  selectedIds = new Set();
+  setSelectionMode(false);
+  await render();
+  showToast("Transactions deleted");
+}
+
+function openHeaderMenu() {
+  if (!headerMenu || !btnUserMenu) return;
+  headerMenu.classList.remove("hidden");
+  btnUserMenu.setAttribute("aria-expanded", "true");
+}
+
+function closeHeaderMenu() {
+  if (!headerMenu || !btnUserMenu) return;
+  headerMenu.classList.add("hidden");
+  btnUserMenu.setAttribute("aria-expanded", "false");
+}
+
+function toggleHeaderMenu() {
+  if (!headerMenu || !btnUserMenu) return;
+  const isOpen = !headerMenu.classList.contains("hidden");
+  if (isOpen) closeHeaderMenu();
+  else openHeaderMenu();
+}
+
 function showNote(note) {
   showToast(`Note: ${note}`, 3500);
+}
+
+function showImportMsg(text) {
+  if (!importMsg) return;
+  importMsg.textContent = text;
+  show(importMsg);
+}
+
+function hideImportMsg() {
+  if (!importMsg) return;
+  hide(importMsg);
+}
+
+function resetImportModal() {
+  importRows = [];
+  importHeaders = [];
+  importDataRows = [];
+  if (importFile) importFile.value = "";
+  if (importPreviewTable) importPreviewTable.innerHTML = "";
+  [
+    importMapDate,
+    importMapDesc,
+    importMapAmount,
+    importMapCategory,
+    importMapNote,
+    importMapType,
+  ].forEach((select) => {
+    if (!select) return;
+    select.innerHTML = "";
+    select.disabled = true;
+  });
+  if (btnImportRun) btnImportRun.disabled = true;
+  if (importHasHeader) importHasHeader.checked = true;
+  hideImportMsg();
+}
+
+function openImportModal() {
+  if (!importOverlay) return;
+  resetImportModal();
+  importOverlay.setAttribute("aria-hidden", "false");
+  show(importOverlay);
+}
+
+function closeImportModal() {
+  if (!importOverlay) return;
+  importOverlay.setAttribute("aria-hidden", "true");
+  hide(importOverlay);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let current = "";
+  let inQuotes = false;
+  const input = String(text || "").replace(/^\uFEFF/, "");
+
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (input[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      row.push(current);
+      current = "";
+    } else if (char === "\n") {
+      row.push(current);
+      rows.push(row);
+      row = [];
+      current = "";
+    } else if (char === "\r") {
+      // ignore
+    } else {
+      current += char;
+    }
+  }
+
+  if (current.length || row.length) {
+    row.push(current);
+    rows.push(row);
+  }
+
+  return rows.filter((r) => r.some((cell) => String(cell).trim() !== ""));
+}
+
+function normalizeHeaderLabel(label) {
+  return String(label || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function suggestMapping(headers) {
+  const normalized = headers.map(normalizeHeaderLabel);
+  const findIndex = (keys) =>
+    normalized.findIndex((h) => keys.some((k) => h === k || h.includes(k)));
+
+  return {
+    date: findIndex(["date", "transactiondate", "posteddate"]),
+    description: findIndex([
+      "description",
+      "desc",
+      "item",
+      "merchant",
+      "name",
+      "details",
+    ]),
+    amount: findIndex([
+      "amount",
+      "amt",
+      "value",
+      "price",
+      "cost",
+      "total",
+      "debit",
+      "credit",
+    ]),
+    category: findIndex(["category", "cat", "typecategory"]),
+    note: findIndex(["note", "memo", "notes", "comment", "remarks"]),
+    type: findIndex(["type", "transactiontype", "direction"]),
+  };
+}
+
+function buildImportContext(rows, hasHeader) {
+  if (!rows.length) return { headers: [], dataRows: [] };
+  const maxCols = Math.max(...rows.map((r) => r.length));
+  const normalizedRows = rows.map((r) => {
+    const next = [...r];
+    while (next.length < maxCols) next.push("");
+    return next;
+  });
+
+  if (hasHeader) {
+    return {
+      headers: normalizedRows[0].map((h, i) => h.trim() || `Column ${i + 1}`),
+      dataRows: normalizedRows.slice(1),
+    };
+  }
+
+  return {
+    headers: normalizedRows[0].map((_, i) => `Column ${i + 1}`),
+    dataRows: normalizedRows,
+  };
+}
+
+function populateMappingSelects(headers, suggested) {
+  const selects = {
+    date: importMapDate,
+    description: importMapDesc,
+    amount: importMapAmount,
+    category: importMapCategory,
+    note: importMapNote,
+    type: importMapType,
+  };
+
+  Object.entries(selects).forEach(([key, select]) => {
+    if (!select) return;
+    select.innerHTML = "";
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "—";
+    select.appendChild(blank);
+
+    headers.forEach((header, idx) => {
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = header;
+      select.appendChild(opt);
+    });
+
+    const suggestedIndex = suggested?.[key];
+    if (Number.isInteger(suggestedIndex) && suggestedIndex >= 0) {
+      select.value = String(suggestedIndex);
+    }
+    select.disabled = false;
+  });
+}
+
+function updateImportPreview(headers, dataRows) {
+  if (!importPreviewTable) return;
+  importPreviewTable.innerHTML = "";
+
+  if (!headers.length) {
+    importPreviewTable.textContent = "Upload a CSV to preview.";
+    return;
+  }
+
+  const previewCols = Math.min(6, headers.length);
+  const headerRow = document.createElement("div");
+  headerRow.className = "importPreview__row isHeader";
+  for (let i = 0; i < previewCols; i += 1) {
+    const cell = document.createElement("div");
+    cell.className = "importPreview__cell";
+    cell.textContent = headers[i] || "";
+    headerRow.appendChild(cell);
+  }
+  importPreviewTable.appendChild(headerRow);
+
+  dataRows.slice(0, 4).forEach((row) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "importPreview__row";
+    for (let i = 0; i < previewCols; i += 1) {
+      const cell = document.createElement("div");
+      cell.className = "importPreview__cell";
+      cell.textContent = row[i] ?? "";
+      rowEl.appendChild(cell);
+    }
+    importPreviewTable.appendChild(rowEl);
+  });
+}
+
+function rebuildImportMapping() {
+  if (!importRows.length) return;
+  const hasHeader = !!importHasHeader?.checked;
+  const { headers, dataRows } = buildImportContext(importRows, hasHeader);
+  importHeaders = headers;
+  importDataRows = dataRows;
+  const suggested = suggestMapping(headers);
+  populateMappingSelects(headers, suggested);
+  updateImportPreview(headers, dataRows);
+  if (btnImportRun) btnImportRun.disabled = dataRows.length === 0;
+}
+
+function getImportMappingFromUI() {
+  const toIndex = (el) => {
+    const value = el?.value ?? "";
+    const num = Number(value);
+    return Number.isFinite(num) ? num : -1;
+  };
+
+  return {
+    date: toIndex(importMapDate),
+    description: toIndex(importMapDesc),
+    amount: toIndex(importMapAmount),
+    category: toIndex(importMapCategory),
+    note: toIndex(importMapNote),
+    type: toIndex(importMapType),
+  };
+}
+
+function parseAmount(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return NaN;
+  const cleaned = raw.replace(/[$,\s]/g, "");
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function parseDateToISO(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
+    const days = Number(raw);
+    if (Number.isFinite(days) && days > 1000) {
+      const base = new Date(Date.UTC(1899, 11, 30));
+      base.setUTCDate(base.getUTCDate() + Math.floor(days));
+      return base.toISOString().slice(0, 10);
+    }
+  }
+
+  const normalized = raw.replace(/\./g, "/").replace(/-/g, "/");
+  const parts = normalized.split("/").map((p) => p.trim());
+  if (parts.length === 3) {
+    let [a, b, c] = parts;
+    if (c.length === 2) c = `20${c}`;
+
+    let mm = a;
+    let dd = b;
+    if (Number(a) > 12 && Number(b) <= 12) {
+      dd = a;
+      mm = b;
+    } else if (Number(b) > 12 && Number(a) <= 12) {
+      mm = a;
+      dd = b;
+    }
+
+    return `${String(c).padStart(4, "0")}-${String(mm).padStart(
+      2,
+      "0",
+    )}-${String(dd).padStart(2, "0")}`;
+  }
+
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return "";
+}
+
+function normalizeType(value) {
+  const t = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!t) return "";
+  if (["expense", "spent", "debit", "out", "payment"].includes(t)) {
+    return "expense";
+  }
+  if (["income", "earned", "credit", "in", "deposit", "refund"].includes(t)) {
+    return "income";
+  }
+  return "";
+}
+
+function buildImportTransactions(rows, mapping, defaultType) {
+  const results = [];
+  let skipped = 0;
+
+  rows.forEach((row) => {
+    const date = parseDateToISO(row[mapping.date]);
+    const amountRaw = parseAmount(row[mapping.amount]);
+    if (!date || !Number.isFinite(amountRaw)) {
+      skipped += 1;
+      return;
+    }
+
+    let amount = amountRaw;
+    let type = mapping.type >= 0 ? normalizeType(row[mapping.type]) : "";
+
+    if (!type) {
+      if (amount < 0) {
+        type = "expense";
+        amount = Math.abs(amount);
+      } else {
+        type = defaultType;
+      }
+    } else if (amount < 0) {
+      amount = Math.abs(amount);
+    }
+
+    const description =
+      mapping.description >= 0
+        ? String(row[mapping.description] ?? "").trim()
+        : "";
+    const category =
+      mapping.category >= 0 ? normalizeCategoryName(row[mapping.category]) : "";
+    const note =
+      mapping.note >= 0 ? String(row[mapping.note] ?? "").trim() : "";
+
+    results.push({
+      date,
+      type,
+      description,
+      amount,
+      category: category || "Other",
+      note,
+    });
+  });
+
+  return { rows: results, skipped };
+}
+
+async function ensureCategoriesForImport(names) {
+  if (!supabaseClient || !currentUserId) return;
+  const existing = await fetchCategories();
+  const existingSet = new Set(existing.map((c) => (c.name || c).toLowerCase()));
+  const toCreate = Array.from(new Set(names))
+    .map((name) => normalizeCategoryName(name))
+    .filter((name) => name && !existingSet.has(name.toLowerCase()));
+
+  if (!toCreate.length) return;
+  await supabaseClient.from("categories").insert(
+    toCreate.map((name) => ({
+      name,
+      user_id: currentUserId,
+    })),
+  );
+}
+
+function escapeCSV(value) {
+  const str = String(value ?? "");
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function buildExportCSV(items) {
+  const headers = ["date", "type", "description", "amount", "category", "note"];
+  const rows = items.map((it) => [
+    it.date || "",
+    it.type || "",
+    it.description || "",
+    Number(it.amount ?? 0),
+    it.category || "",
+    it.note || "",
+  ]);
+
+  return [headers, ...rows]
+    .map((row) => row.map(escapeCSV).join(","))
+    .join("\n");
+}
+
+async function exportCSV() {
+  if (!supabaseClient || !currentUserId) {
+    showToast("Log in to export.");
+    return;
+  }
+
+  const items = await fetchTransactions();
+  if (!items.length) {
+    showToast("No transactions to export.");
+    return;
+  }
+
+  const csv = buildExportCSV(items);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spending-tracker-${todayISO()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function runImport() {
+  hideImportMsg();
+
+  if (!supabaseClient || !currentUserId) {
+    showImportMsg("Log in to import.");
+    return;
+  }
+
+  if (!importDataRows.length) {
+    showImportMsg("Add a CSV file first.");
+    return;
+  }
+
+  const mapping = getImportMappingFromUI();
+  if (mapping.date < 0 || mapping.amount < 0) {
+    showImportMsg("Map Date and Amount columns.");
+    return;
+  }
+
+  const defaultType = importDefaultType?.value || "expense";
+  const { rows, skipped } = buildImportTransactions(
+    importDataRows,
+    mapping,
+    defaultType,
+  );
+
+  if (!rows.length) {
+    showImportMsg("No valid rows to import.");
+    return;
+  }
+
+  if (btnImportRun) btnImportRun.disabled = true;
+  await ensureCategoriesForImport(rows.map((row) => row.category));
+
+  const chunkSize = 200;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize).map((row) => ({
+      ...row,
+      user_id: currentUserId,
+    }));
+
+    const { error } = await supabaseClient.from("transactions").insert(chunk);
+    if (error) {
+      showImportMsg("Import failed. Please check your CSV.");
+      if (btnImportRun) btnImportRun.disabled = false;
+      return;
+    }
+    inserted += chunk.length;
+  }
+
+  await render();
+  closeImportModal();
+  showToast(
+    `Imported ${inserted} transaction${inserted === 1 ? "" : "s"}. Skipped ${skipped}.`,
+  );
 }
 
 function openAddCatModal() {
@@ -889,6 +1521,9 @@ function closeAllMenus() {
 
 function renderList(items, isFiltered = false) {
   txList.innerHTML = "";
+  lastFilteredItems = items;
+  pruneSelectionToFiltered(items);
+  updateSelectionUI();
 
   if (!items.length) {
     if (emptyTitle && emptyMuted) {
@@ -933,6 +1568,32 @@ function renderList(items, isFiltered = false) {
     row.className = "txRow";
     row.dataset.id = it.id;
 
+    if (selectionMode) {
+      row.classList.add("isSelectable");
+      if (selectedIds.has(it.id)) row.classList.add("isSelected");
+
+      const selectWrap = document.createElement("label");
+      selectWrap.className = "txSelectWrap";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "txSelect";
+      checkbox.checked = selectedIds.has(it.id);
+      checkbox.addEventListener("change", (e) => {
+        const checked = e.target.checked;
+        toggleSelection(it.id, checked);
+        row.classList.toggle("isSelected", checked);
+      });
+      selectWrap.appendChild(checkbox);
+      row.appendChild(selectWrap);
+
+      row.addEventListener("click", (e) => {
+        if (e.target === checkbox) return;
+        if (e.target.closest(".kebab") || e.target.closest(".menu")) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event("change"));
+      });
+    }
+
     // LEFT: Title + category
     const left = document.createElement("div");
     left.className = "txLeft";
@@ -969,64 +1630,67 @@ function renderList(items, isFiltered = false) {
     metaRight.appendChild(amt);
     metaRight.appendChild(date);
 
-    const kebabWrap = document.createElement("div");
-    kebabWrap.className = "kebabWrap";
+    let kebabWrap = null;
+    if (!selectionMode) {
+      kebabWrap = document.createElement("div");
+      kebabWrap.className = "kebabWrap";
 
-    const kebab = document.createElement("button");
-    kebab.className = "kebab";
-    kebab.type = "button";
-    kebab.setAttribute("aria-label", "Transaction actions");
-    kebab.textContent = "⋯";
+      const kebab = document.createElement("button");
+      kebab.className = "kebab";
+      kebab.type = "button";
+      kebab.setAttribute("aria-label", "Transaction actions");
+      kebab.textContent = "⋯";
 
-    kebab.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const existing = kebabWrap.querySelector(".menu");
-      closeAllMenus();
-      if (existing) return;
+      kebab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const existing = kebabWrap.querySelector(".menu");
+        closeAllMenus();
+        if (existing) return;
 
-      const menu = document.createElement("div");
-      menu.className = "menu";
+        const menu = document.createElement("div");
+        menu.className = "menu";
 
-      const noteText = it.note?.trim();
-      if (noteText) {
-        const btnNote = document.createElement("button");
-        btnNote.className = "menuBtn";
-        btnNote.type = "button";
-        btnNote.textContent = "View note";
-        btnNote.addEventListener("click", () => {
+        const noteText = it.note?.trim();
+        if (noteText) {
+          const btnNote = document.createElement("button");
+          btnNote.className = "menuBtn";
+          btnNote.type = "button";
+          btnNote.textContent = "View note";
+          btnNote.addEventListener("click", () => {
+            closeAllMenus();
+            showNote(noteText);
+          });
+          menu.appendChild(btnNote);
+        }
+
+        const btnEdit = document.createElement("button");
+        btnEdit.className = "menuBtn";
+        btnEdit.type = "button";
+        btnEdit.textContent = "Edit";
+        btnEdit.addEventListener("click", () => {
           closeAllMenus();
-          showNote(noteText);
+          startEdit(it.id);
         });
-        menu.appendChild(btnNote);
-      }
 
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "menuBtn";
-      btnEdit.type = "button";
-      btnEdit.textContent = "Edit";
-      btnEdit.addEventListener("click", () => {
-        closeAllMenus();
-        startEdit(it.id);
+        const btnDel = document.createElement("button");
+        btnDel.className = "menuBtn menuBtn--danger";
+        btnDel.type = "button";
+        btnDel.textContent = "Delete";
+        btnDel.addEventListener("click", () => {
+          closeAllMenus();
+          deleteTx(it.id);
+        });
+
+        menu.appendChild(btnEdit);
+        menu.appendChild(btnDel);
+        kebabWrap.appendChild(menu);
       });
 
-      const btnDel = document.createElement("button");
-      btnDel.className = "menuBtn menuBtn--danger";
-      btnDel.type = "button";
-      btnDel.textContent = "Delete";
-      btnDel.addEventListener("click", () => {
-        closeAllMenus();
-        deleteTx(it.id);
-      });
-
-      menu.appendChild(btnEdit);
-      menu.appendChild(btnDel);
-      kebabWrap.appendChild(menu);
-    });
-
-    kebabWrap.appendChild(kebab);
+      kebabWrap.appendChild(kebab);
+    }
 
     right.appendChild(metaRight);
-    right.appendChild(kebabWrap);
+    if (kebabWrap) right.appendChild(kebabWrap);
 
     row.appendChild(left);
     row.appendChild(right);
@@ -1153,6 +1817,54 @@ filterEarned.addEventListener("click", () => {
   renderList(filtered, isFiltered);
 });
 
+if (btnSelectMode) {
+  btnSelectMode.addEventListener("click", () => {
+    setSelectionMode(!selectionMode);
+  });
+}
+
+if (btnCloseSelection) {
+  btnCloseSelection.addEventListener("click", () => {
+    setSelectionMode(false);
+  });
+}
+
+if (btnSelectAll) {
+  btnSelectAll.addEventListener("click", () => {
+    if (!selectionMode) setSelectionMode(true);
+    const allSelected =
+      lastFilteredItems.length > 0 &&
+      selectedIds.size === lastFilteredItems.length;
+    if (allSelected) {
+      selectedIds = new Set();
+    } else {
+      selectedIds = new Set(lastFilteredItems.map((it) => it.id));
+    }
+    updateSelectionUI();
+    const filtered = getFilteredItems(lastItems);
+    const isFiltered =
+      filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+    renderList(filtered, isFiltered);
+  });
+}
+
+if (btnClearSelection) {
+  btnClearSelection.addEventListener("click", () => {
+    selectedIds = new Set();
+    updateSelectionUI();
+    const filtered = getFilteredItems(lastItems);
+    const isFiltered =
+      filterType !== "all" || filterCategory.length > 0 || !!filterSearch;
+    renderList(filtered, isFiltered);
+  });
+}
+
+if (btnDeleteSelected) {
+  btnDeleteSelected.addEventListener("click", () => {
+    deleteSelectedTransactions();
+  });
+}
+
 btnAdvanced.addEventListener("click", () => {
   const { start, end } = rangeFromMonthKey(monthSelect.value);
   rangeStart.value = start;
@@ -1161,6 +1873,20 @@ btnAdvanced.addEventListener("click", () => {
   rangeOverlay.setAttribute("aria-hidden", "false");
   show(rangeOverlay);
 });
+
+if (btnImport) {
+  btnImport.addEventListener("click", () => {
+    closeHeaderMenu();
+    openImportModal();
+  });
+}
+
+if (btnExport) {
+  btnExport.addEventListener("click", () => {
+    closeHeaderMenu();
+    exportCSV();
+  });
+}
 
 btnRangeClose.addEventListener("click", () => {
   rangeOverlay.setAttribute("aria-hidden", "true");
@@ -1173,6 +1899,14 @@ rangeOverlay.addEventListener("click", (e) => {
     hide(rangeOverlay);
   }
 });
+
+if (importOverlay) {
+  importOverlay.addEventListener("click", (e) => {
+    if (e.target === importOverlay) {
+      closeImportModal();
+    }
+  });
+}
 
 btnRangeApply.addEventListener("click", () => {
   const start = rangeStart.value;
@@ -1189,6 +1923,42 @@ btnRangeApply.addEventListener("click", () => {
 
   renderRangeSummary(lastItems, start, end);
 });
+
+if (btnImportClose) {
+  btnImportClose.addEventListener("click", () => closeImportModal());
+}
+
+if (btnImportCancel) {
+  btnImportCancel.addEventListener("click", () => closeImportModal());
+}
+
+if (btnImportRun) {
+  btnImportRun.addEventListener("click", () => runImport());
+}
+
+if (importHasHeader) {
+  importHasHeader.addEventListener("change", () => rebuildImportMapping());
+}
+
+if (importFile) {
+  importFile.addEventListener("change", (e) => {
+    hideImportMsg();
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      importRows = parseCSV(reader.result);
+      if (!importRows.length) {
+        showImportMsg("No data found in that CSV.");
+        return;
+      }
+      rebuildImportMapping();
+    };
+    reader.onerror = () => showImportMsg("Failed to read CSV file.");
+    reader.readAsText(file);
+  });
+}
 
 // auth toggle
 if (btnAuthToggle) {
@@ -1272,6 +2042,7 @@ authForm.addEventListener("submit", async (e) => {
 // logout
 btnLogout.addEventListener("click", async () => {
   if (!supabaseClient) return;
+  closeHeaderMenu();
   await supabaseClient.auth.signOut();
   currentUserId = null;
   setSignedOutUI();
@@ -1360,9 +2131,13 @@ confirmOverlay.addEventListener("click", (e) => {
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeAllMenus();
+    closeHeaderMenu();
     if (!modalOverlay.classList.contains("hidden")) closeModal();
     if (!addCatOverlay.classList.contains("hidden")) closeAddCatModal();
     if (!manageCatOverlay.classList.contains("hidden")) closeManageCatModal();
+    if (importOverlay && !importOverlay.classList.contains("hidden")) {
+      closeImportModal();
+    }
     if (!confirmOverlay.classList.contains("hidden")) closeConfirm(false);
   }
 });

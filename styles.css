@@ -158,6 +158,50 @@ body {
   gap: 10px;
 }
 
+.headerMenu {
+  position: relative;
+}
+
+.headerMenu__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 180px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 18, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  z-index: 40;
+}
+
+.headerMenu__item {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.headerMenu__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.headerMenu__item--danger {
+  color: rgba(255, 120, 120, 0.95);
+}
+
+.headerMenu__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
 /* Hero */
 .hero {
   text-align: center;
@@ -252,6 +296,11 @@ body {
 .field__label {
   font-size: 14px;
   color: var(--muted);
+}
+
+.field__helper {
+  font-size: 12px;
+  color: var(--muted2);
 }
 
 .input {
@@ -503,8 +552,21 @@ body {
   );
 }
 .btn--sm {
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-size: 13px;
+}
+
+.btn--select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn--select .btn__icon {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .btn--full {
@@ -950,6 +1012,16 @@ body {
     flex-direction: column;
     align-items: flex-start;
   }
+  .importMap__grid {
+    grid-template-columns: 1fr;
+  }
+  .importMap__footer {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+  .importPreview__row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -959,10 +1031,10 @@ body {
   }
   .sectionHead__right {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     grid-template-areas:
-      "search filters"
-      "panel panel";
+      "search filters select"
+      "panel panel panel";
     align-items: center;
     gap: 10px;
     width: 100%;
@@ -977,10 +1049,19 @@ body {
   }
   .btn--filters {
     display: inline-flex;
-    width: 100%;
+    width: auto;
     justify-content: center;
     padding: 10px 12px;
     grid-area: filters;
+  }
+  .btn--select {
+    padding: 10px 12px;
+    width: auto;
+    justify-content: center;
+    grid-area: select;
+  }
+  .btn--select .btn__text {
+    display: none;
   }
   .filtersPanel {
     display: none;
@@ -994,6 +1075,22 @@ body {
   }
   .filtersPanel.isOpen {
     display: flex;
+  }
+  .modalOverlay {
+    place-items: start center;
+  }
+  .modal {
+    max-height: calc(100dvh - 24px);
+  }
+  .selectionBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .selectionBar__header {
+    justify-content: space-between;
+  }
+  .selectionBar__actions {
+    gap: 8px;
   }
   .filterGroup {
     display: flex;
@@ -1085,6 +1182,37 @@ body {
   padding: 10px;
   background: rgba(18, 20, 30, 0.4);
 }
+
+.selectionBar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  margin-bottom: 10px;
+}
+
+.selectionBar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.selectionBar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selectionBar__count {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: left;
+  padding-left: 6px;
+}
 .txList {
   display: grid;
   gap: 8px;
@@ -1123,6 +1251,27 @@ body {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.16);
+}
+
+.txRow.isSelectable {
+  grid-template-columns: auto 1fr auto;
+  cursor: pointer;
+}
+
+.txRow.isSelected {
+  border-color: rgba(110, 160, 255, 0.55);
+  background: rgba(60, 120, 255, 0.12);
+}
+
+.txSelectWrap {
+  display: grid;
+  place-items: center;
+}
+
+.txSelect {
+  width: 18px;
+  height: 18px;
+  accent-color: rgba(110, 160, 255, 0.9);
 }
 
 .txLeft {
@@ -1297,6 +1446,7 @@ body {
   place-items: center;
   padding: 18px;
   z-index: 20;
+  overflow-y: auto;
 }
 
 #addCatOverlay {
@@ -1311,12 +1461,20 @@ body {
     rgba(255, 255, 255, 0.07),
     rgba(255, 255, 255, 0.035)
   );
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
 }
 .modal--sm {
   width: min(480px, 100%);
 }
+.modal--confirm .modal__head {
+  margin-bottom: 16px;
+}
 .modal--range {
   width: min(640px, 100%);
+}
+.modal--import {
+  width: min(760px, 100%);
 }
 .modal--manage {
   max-height: min(70vh, 640px);
@@ -1342,10 +1500,146 @@ body {
   font-size: 13px;
 }
 
+.confirmBody {
+  display: grid;
+  gap: 6px;
+}
+
 .modal__actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.importStack {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.importRow {
+  display: grid;
+  gap: 8px;
+}
+
+.importRow--file {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.importFileInput {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.importFileInput::file-selector-button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-right: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.importFileInput::file-selector-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.importToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.importToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: rgba(110, 160, 255, 0.9);
+}
+
+.importMap {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  margin-bottom: 14px;
+}
+
+.importMap__title {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.importMap__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.importMap__footer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.importMap__hintRow {
+  margin-top: 8px;
+}
+
+.importHint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.importPreview {
+  margin-bottom: 14px;
+}
+
+.importPreview__title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.importPreview__table {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.importPreview__row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+}
+
+.importPreview__cell {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.importPreview__row.isHeader .importPreview__cell {
+  color: var(--text);
+  font-weight: 700;
+  border-top: none;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 #btnManageCatAdd {

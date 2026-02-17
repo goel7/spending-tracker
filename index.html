@@ -113,13 +113,35 @@
           </div>
 
           <div class="header__actions">
-            <button
-              id="btnLogout"
-              class="btn btn--ghost btn--sm hidden"
-              type="button"
-            >
-              Logout
-            </button>
+            <div class="headerMenu">
+              <button
+                id="btnUserMenu"
+                class="iconBtn iconBtn--sm hidden"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-label="Account menu"
+                title="Account"
+              >
+                ☰
+              </button>
+              <div id="headerMenu" class="headerMenu__panel hidden">
+                <button id="btnImport" class="headerMenu__item" type="button">
+                  Import CSV
+                </button>
+                <button id="btnExport" class="headerMenu__item" type="button">
+                  Export CSV
+                </button>
+                <div class="headerMenu__divider"></div>
+                <button
+                  id="btnLogout"
+                  class="headerMenu__item headerMenu__item--danger"
+                  type="button"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
         </header>
         <!-- Monthly overview -->
@@ -192,6 +214,16 @@
                 aria-hidden="true"
               ></span>
             </button>
+            <button
+              id="btnSelectMode"
+              class="btn btn--ghost btn--sm btn--select"
+              type="button"
+              aria-label="Toggle select mode"
+              title="Select multiple transactions"
+            >
+              <span class="btn__icon" aria-hidden="true">☑</span>
+              <span class="btn__text">Select</span>
+            </button>
 
             <div id="filtersPanel" class="filtersPanel">
               <div class="filterGroup" role="group" aria-label="Filter type">
@@ -248,6 +280,40 @@
         </section>
 
         <section class="card card--glass listCard">
+          <div id="selectionBar" class="selectionBar hidden">
+            <div class="selectionBar__header">
+              <div class="selectionBar__actions">
+                <button
+                  id="btnDeleteSelected"
+                  class="btn btn--danger btn--sm"
+                  type="button"
+                  aria-label="Delete selected transactions"
+                  title="Delete"
+                >
+                  <span class="btn__icon" aria-hidden="true">🗑</span>
+                </button>
+                <button
+                  id="btnSelectAll"
+                  class="btn btn--ghost btn--sm"
+                  type="button"
+                >
+                  Select all
+                </button>
+              </div>
+              <button
+                id="btnCloseSelection"
+                class="btn btn--ghost btn--sm"
+                type="button"
+                aria-label="Close selection mode"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div id="selectionCount" class="selectionBar__count">
+              0 selected
+            </div>
+          </div>
           <div id="txList" class="txList"></div>
           <div id="emptyState" class="emptyState hidden">
             <div class="emptyState__emoji" aria-hidden="true">🧾</div>
@@ -506,6 +572,131 @@
         </div>
       </div>
 
+      <!-- Modal: Import CSV -->
+      <div
+        id="importOverlay"
+        class="modalOverlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal card card--glass modal--import">
+          <div class="modal__head">
+            <div>
+              <div class="modal__title">Import CSV</div>
+              <div class="modal__muted">
+                Match columns to fields, then import.
+              </div>
+            </div>
+            <button
+              id="btnImportClose"
+              class="iconBtn"
+              aria-label="Close import"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="importStack">
+            <div class="importRow importRow--file">
+              <label class="field">
+                <span class="field__label">CSV file</span>
+                <input
+                  id="importFile"
+                  class="input importFileInput"
+                  type="file"
+                  accept=".csv,text/csv"
+                />
+                <span class="field__helper">
+                  Tip: Use columns like Date, Description, Amount, Category,
+                  Note, Expense / Income.
+                </span>
+              </label>
+            </div>
+            <label class="importToggle">
+              <input id="importHasHeader" type="checkbox" checked />
+              <span>First row is headers</span>
+            </label>
+          </div>
+
+          <div class="importMap">
+            <div class="importMap__title">Column mapping</div>
+            <div class="importMap__grid">
+              <label class="field">
+                <span class="field__label">Date</span>
+                <select id="importMapDate" class="input input--select"></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Description</span>
+                <select id="importMapDesc" class="input input--select"></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Amount</span>
+                <select
+                  id="importMapAmount"
+                  class="input input--select"
+                ></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Category</span>
+                <select
+                  id="importMapCategory"
+                  class="input input--select"
+                ></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Note</span>
+                <select id="importMapNote" class="input input--select"></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Expense / Income</span>
+                <select id="importMapType" class="input input--select"></select>
+              </label>
+            </div>
+            <div class="importMap__footer">
+              <label class="field field--compact">
+                <span class="field__label">Default Expense / Income</span>
+                <select
+                  id="importDefaultType"
+                  class="input input--select input--sm"
+                >
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+              </label>
+            </div>
+            <div class="importMap__hintRow">
+              <div class="importHint">
+                Note: If Expense / Income column is missing, we use the default.
+                Negative amounts are treated as expenses.
+              </div>
+            </div>
+          </div>
+
+          <div class="importPreview">
+            <div class="importPreview__title">Preview</div>
+            <div id="importPreviewTable" class="importPreview__table"></div>
+          </div>
+
+          <div class="row row--gap row--end">
+            <button id="btnImportCancel" class="btn btn--ghost" type="button">
+              Cancel
+            </button>
+            <button id="btnImportRun" class="btn btn--primary" type="button">
+              Import
+            </button>
+          </div>
+
+          <div
+            id="importMsg"
+            class="msg hidden"
+            role="status"
+            aria-live="polite"
+          ></div>
+        </div>
+      </div>
+
       <!-- Tiny toast -->
       <div
         id="toast"
@@ -616,9 +807,9 @@
       aria-modal="true"
       aria-hidden="true"
     >
-      <div class="modal card card--glass modal--sm">
+      <div class="modal card card--glass modal--sm modal--confirm">
         <div class="modal__head">
-          <div>
+          <div class="confirmBody">
             <div id="confirmTitle" class="modal__title">Confirm</div>
             <div id="confirmSubtitle" class="modal__muted">Are you sure?</div>
           </div>
